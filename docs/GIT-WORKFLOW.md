@@ -146,12 +146,12 @@ git status
 git add .
 ```
 
-### 3. Skapa commit
+### 3. Skapa commit (Skriv gärna på svenska i commit-meddelandet)
 
 Skriv gärna Issue-numret i commit-meddelandet.
 
 ```bash
-git commit -m "Add New-OnboardifyHomeFolder function (#19)"
+git commit -m "Lägger till funktionen New-OnboardifyHomeFolder (#19)"
 ```
 
 ### 4. Pusha branchen till GitHub
@@ -259,7 +259,7 @@ Efter ändringar:
 ```bash
 git status
 git add .
-git commit -m "Add New-OnboardifyHomeFolder function (#19)"
+git commit -m "Lägger till funktionen New-OnboardifyHomeFolder (#19)"
 git push -u origin function/New-OnboardifyHomeFolder
 ```
 
