@@ -22,12 +22,12 @@ docs/sprints/
     daily-standups.md
     review-retrospective.md
 
-  sprint_01/
+  sprint_03/
     sprint_plan.md
     daily-standups.md
     review-retrospective.md
 
-  sprint_02/
+  sprint_04/
     sprint_plan.md
     daily-standups.md
     review-retrospective.md

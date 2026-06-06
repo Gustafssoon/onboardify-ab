@@ -14,9 +14,11 @@ Varje person svarar kort på:
 
 **Närvarande:**
 
-- Namn
-- Namn
-- Namn
+- Martin Hansson Palm - [Scrum Master]
+- Gabriel Gustafsson - [Product Owner]
+- Micael Engdahl - [Utvecklare]
+- Ali Sulaiman [Utvecklare]
+- Zahra Hadadi [Utvecklare]
 
 **Vad har gjorts sedan sist?**
 

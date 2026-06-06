@@ -81,7 +81,7 @@ En issue räknas som klar när:
 - Eventuella fel hanteras på ett rimligt sätt
 - Resultatet är dokumenterat kort
 - Koden är pushad till GitHub
-- Pull request är granskad och godkänd utav Product Owner
+- Pull request är granskad och godkänd av Product Owner
 - Kortet är flyttat till Done i GitHub Projects
 
 ---
@@ -91,9 +91,9 @@ En issue räknas som klar när:
 | Dokument | Beskrivning |
 |---|---|
 | [Kom igång](docs/GET_STARTED.md) | Guide för att komma igång med Git och klona repot |
-| [Git workflow](docs/GIT_WORKFLOW.md) | Våran workflow, alltså hur vi jobbar med branches, commits och pull requests |
-| [Förändringsledning](docs/change-management.md) | HR, IT, Awareness och Desire |
-| [Sprintarbete](docs/sprints/README.md) | Hur vi planerar och dokumenterar sprintar |
+| [Git workflow](docs/GIT_WORKFLOW.md) | Vårt arbetsflöde, alltså hur vi jobbar med branches, commits och pull requests |
+| [Förändringsledning](docs/change_management.md) | HR, IT, Awareness och Desire |
+| [Sprintarbete](docs/sprints/SPRINT_README.md) | Hur vi planerar och dokumenterar sprintar |
 
 ---
 

@@ -1,9 +1,9 @@
-# Sprint 3 - Titel på sprinten
+# Sprint 1 - Titel på sprinten
 
 ## Sprintperiod
 
-**Start:** 2026-06-12  
-**Slut:** 2026-06-13 
+**Start:** 2026-06-08  
+**Slut:** 2026-06-09  
 **Sprintlängd:** 2 dagar  
 
 ---
@@ -56,7 +56,7 @@ En issue räknas som klar när:
 
 ---
 
-# ## Förändringsledning
+## Förändringsledning
 
 **Finns det något i denna sprint som påverkar HR:s Awareness eller Desire kring onboarding-processen?**
 

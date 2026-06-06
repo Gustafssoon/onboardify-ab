@@ -56,7 +56,7 @@ En issue räknas som klar när:
 
 ---
 
-# ## Förändringsledning
+## Förändringsledning
 
 **Finns det något i denna sprint som påverkar HR:s Awareness eller Desire kring onboarding-processen?**
 

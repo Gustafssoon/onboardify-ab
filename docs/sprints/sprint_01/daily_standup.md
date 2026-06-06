@@ -10,13 +10,15 @@ Varje person svarar kort på:
 
 ---
 
-## Daily Standup - 2026-06-12
+## Daily Standup - 2026-06-08
 
 **Närvarande:**
 
-- Namn
-- Namn
-- Namn
+- Martin Hansson Palm - [Scrum Master]
+- Gabriel Gustafsson - [Product Owner]
+- Micael Engdahl - [Utvecklare]
+- Ali Sulaiman [Utvecklare]
+- Zahra Hadadi [Utvecklare]
 
 **Vad har gjorts sedan sist?**
 
@@ -44,7 +46,7 @@ Varje person svarar kort på:
 
 ---
 
-## Daily Standup - 2026-06-13
+## Daily Standup - 2026-06-09
 
 **Närvarande:**
 
