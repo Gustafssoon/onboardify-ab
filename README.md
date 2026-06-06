@@ -93,6 +93,6 @@ En issue räknas som klar när:
 | [Kom igång](docs/GET_STARTED.md) | Guide för att komma igång med Git och klona repot |
 | [Git workflow](docs/GIT_WORKFLOW.md) | Vårt arbetsflöde, alltså hur vi jobbar med branches, commits och pull requests |
 | [Förändringsledning](docs/change_management.md) | HR, IT, Awareness och Desire |
-| [Sprintarbete](docs/sprints/SPRINT_README.md) | Hur vi planerar och dokumenterar sprintar |
+| [Sprintarbete](docs/SPRINT_README.md) | Hur vi planerar och dokumenterar sprintar |
 
 ---
