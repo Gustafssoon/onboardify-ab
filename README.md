@@ -23,4 +23,4 @@ Första gången du ska jobba med projektet, följ guiden här:
 
 När projektet är klonat, följ vårt arbetssätt för Issues, branches och Pull Requests:
 
-[Git workflow](docs/GIT-WORKFLOW.md)
+[Git workflow](docs/GIT_WORKFLOW.md)
