@@ -187,7 +187,7 @@ Varje person svarar kort på:
 2. Vad ska jag göra idag?
 3. Finns det något hinder?
 
-Daily standup dokumenteras i sprintens [daily_standup)](docs/sprints/) som ligger placerad i vardera sprint mapp.
+Daily standup dokumenteras i sprintens respektive sprint mapp.
 
 ---
 
@@ -203,7 +203,7 @@ Vi dokumenterar:
 * eventuell feedback
 * vad som behöver justeras inför nästa sprint
 
-Sprint review dokumenteras i sprintens [review_retrospective.md)](docs/sprints/) som ligger placerad i vardera sprint mapp.
+Sprint review dokumenteras i sprintens respektive sprint mapp.
 
 ---
 
@@ -218,16 +218,13 @@ Vi dokumenterar:
 * vad vi lärde oss
 * vad vi förbättrar till nästa sprint
 
-Sprint retrospective dokumenteras i sprintens [review_retrospective.md)](docs/sprints/) som ligger placerad i vardera sprint mapp.
+Sprint retrospective dokumenteras i sprintens respektive sprint mapp.
 
 ---
 
 ## Förändringsledning i sprintar
 
-Förändringsledning dokumenteras främst i:
-
-[change_management.md)](docs/change_management.md)
-``
+Förändringsledning dokumenteras främst i: [change_management.md](change_management.md)
 
 I varje sprint behöver vi bara skriva kort om sprinten påverkar HR:s Awareness eller Desire.
 
