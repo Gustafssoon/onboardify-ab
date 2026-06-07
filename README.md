@@ -53,36 +53,19 @@ Rollerna hjälper oss att fördela ansvar, men alla i gruppen hjälps åt med ko
 
 ---
 
-## GitHub Projects-regler
+## Arbetssätt
 
-Vi använder GitHub Projects som vår Scrum-tavla.
+Vi använder GitHub Projects som Scrum-tavla.
 
-Regler:
+Grundregler:
 
 - Ingen jobbar utan en Issue.
-- Den som tar en uppgift assignar sig själv direkt.
-- Kort flyttas i realtid:
-  - Project Backlog
-  - Todo
-  - In Progress
-  - In Review
-  - Done
+- Den som tar en uppgift assignar sig själv.
+- Kort flyttas i realtid mellan Project Backlog, Todo, In Progress, In Review och Done.
 - Varje issue ska vara lagom liten.
 - Varje issue ska ha tydliga kriterier för när den är klar.
 
----
-
-## Definition of Done
-
-En issue räknas som klar när:
-
-- Funktionen eller dokumentationen är färdig
-- Det är testat
-- Eventuella fel hanteras på ett rimligt sätt
-- Resultatet är dokumenterat kort
-- Koden är pushad till GitHub
-- Pull request är granskad och godkänd av Product Owner
-- Kortet är flyttat till Done i GitHub Projects
+Mer detaljer finns i [Sprintarbete](docs/SPRINT_README.md).
 
 ---
 
@@ -91,8 +74,10 @@ En issue räknas som klar när:
 | Dokument | Beskrivning |
 |---|---|
 | [Kom igång](docs/GET_STARTED.md) | Guide för att komma igång med Git och klona repot |
-| [Git workflow](docs/GIT_WORKFLOW.md) | Vårt arbetsflöde, alltså hur vi jobbar med branches, commits och pull requests |
+| [Git workflow](docs/GIT_WORKFLOW.md) | Hur vi jobbar med branches, commits och pull requests |
 | [Förändringsledning](docs/change_management.md) | HR, IT, Awareness och Desire |
 | [Sprintarbete](docs/SPRINT_README.md) | Hur vi planerar och dokumenterar sprintar |
+| [Labbmiljö](docs/lab/) | Dokumentation för VM, AD-labb och åtkomst |
+| [Sprintdokumentation](docs/sprints/) | Daily standups, sprint review och retrospective |
 
 ---
