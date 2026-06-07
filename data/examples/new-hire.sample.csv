@@ -1,0 +1,3 @@
+# Exempelfil. Läs README.md i samma mapp för förklaring.
+firstName,lastName,username,department,license,groups
+Anna,Andersson,anna.andersson,IT,M365-E3,GG-IT-Bas;GG-VPN-Anvandare
