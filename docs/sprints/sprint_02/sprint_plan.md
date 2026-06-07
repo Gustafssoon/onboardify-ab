@@ -77,19 +77,6 @@ Skriv 3-5 meningar om sprinten.
 
 ---
 
-## Status efter sprinten
-
-| Område | Status | Kommentar |
-|---|---|---|
-| GitHub Projects | Påbörjad/Klar |  |
-| JSON/CSV | Påbörjad/Klar |  |
-| PowerShell-script | Påbörjad/Klar |  |
-| AD-testmiljö | Påbörjad/Klar |  |
-| Dokumentation | Påbörjad/Klar |  |
-| Förändringsledning | Påbörjad/Klar |  |
-
----
-
 ## Nästa sprint bör fokusera på
 
 - 
