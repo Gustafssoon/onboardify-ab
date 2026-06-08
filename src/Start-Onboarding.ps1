@@ -29,12 +29,42 @@ function Read-OnboardingData {
     return $data
 }
 
+# Funktion som kontrollerar att viktig onboarding-data finns
+function Test-OnboardingData {
+    param(
+        $Users
+    )
+
+    if ($null -eq $Users) {
+        throw "Ingen onboarding-data kunde läsas in."
+    }
+
+    foreach ($user in $Users) {
+        if ([string]::IsNullOrWhiteSpace($user.firstName)) {
+            throw "Förnamn saknas för en användare."
+        }
+
+        if ([string]::IsNullOrWhiteSpace($user.lastName)) {
+            throw "Efternamn saknas för en användare."
+        }
+
+        if ([string]::IsNullOrWhiteSpace($user.department)) {
+            throw "Avdelning saknas för en användare."
+        }
+    }
+
+    Write-Host "Grundläggande validering är klar."
+}
+
 # Startmeddelanden
 Write-Host "Startar onboarding-script..."
 Write-Host "Datafil: $DataPath"
 
 # Läs in användare från datafilen
 $users = Read-OnboardingData -Path $DataPath
+
+# Kontrollera att datan innehåller de viktigaste fälten
+Test-OnboardingData -Users $users
 
 # Skriv ut resultat från inläsningen
 Write-Host "Onboarding-data har lästs in."
