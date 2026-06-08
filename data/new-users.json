@@ -1,0 +1,10 @@
+﻿[
+  {
+    "firstName": "Test",
+    "lastName": "User",
+    "department": "IT",
+    "ou": "IT",
+    "groups": ["GR_IT_Basic"],
+    "license": "M365_E3"
+  }
+]
