@@ -12,6 +12,15 @@ $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
 
+# Sökväg till loggmappen och loggfilen
+$LogFolder = ".\logs"
+$LogFile = ".\logs\onboarding-log.txt"
+
+# Skapa loggmappen om den inte redan finns
+if (-not (Test-Path $LogFolder)) {
+    New-Item -ItemType Directory -Path $LogFolder | Out-Null
+}
+
 # Funktion som läser in onboarding-data från en JSON-fil
 function Read-OnboardingData {
     param(
@@ -53,24 +62,37 @@ function Test-OnboardingData {
         }
     }
 
-    Write-Host "Grundläggande validering är klar."
+    Write-OnboardingLog "Grundläggande validering är klar."
+}
+
+# Funktion som skriver logg både till terminalen och till loggfilen
+function Write-OnboardingLog {
+    param(
+        [string]$Message
+    )
+
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $logText = "$timestamp - $Message"
+
+    Write-Host $logText
+    Add-Content -Path $LogFile -Value $logText
 }
 
 # Startmeddelanden
-Write-Host "Startar onboarding-script..."
-Write-Host "Datafil: $DataPath"
+Write-OnboardingLog "Startar onboarding-script..."
+Write-OnboardingLog "Datafil: $DataPath"
 
 # Läs in användare från datafilen
-$users = Read-OnboardingData -Path $DataPath
+$users = @(Read-OnboardingData -Path $DataPath)
 
 # Kontrollera att datan innehåller de viktigaste fälten
 Test-OnboardingData -Users $users
 
 # Skriv ut resultat från inläsningen
-Write-Host "Onboarding-data har lästs in."
-Write-Host "Antal användare: $($users.Count)"
+Write-OnboardingLog "Onboarding-data har lästs in."
+Write-OnboardingLog "Antal användare: $($users.Count)"
 
 # Loopa igenom användarna och visa vilka som hittades
 foreach ($user in $users) {
-    Write-Host "Hittade användare: $($user.firstName) $($user.lastName)"
+    Write-OnboardingLog "Hittade användare: $($user.firstName) $($user.lastName)"
 }
