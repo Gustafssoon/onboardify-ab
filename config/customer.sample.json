@@ -1,1 +1,7 @@
-"_TEMP_INFO_REMOVE_BEFORE_USE": "Detta är en exempelfil. Se config/README.md för förklaring.",
+"test"
+{
+  "FirstName": "Anna",
+  "LastName": "Svensson",
+  "Department": "Utbildningsförvaltningen",
+  "Role": "Lärare"
+}
