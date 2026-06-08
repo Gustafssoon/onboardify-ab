@@ -44,9 +44,9 @@ Projektet använder:
 | Roll | Namn | Ansvar |
 |---|---|---|
 | Product Owner | [Gabriel Gustafsson](https://github.com/Gustafssoon) | Ansvarar för GitHub Projects, backloggen och prioriteringen av issues. Ser till att arbetet kopplas till produktidén för Onboardify AB och att gruppen jobbar med rätt saker i rätt ordning. Skapar och strukturerar issues, följer upp status på tavlan och ser till att varje issue har tydliga krav för när den är klar. |
-| Scrum Master | [Martin Hansson Palm](https://github.com/DrWeremoth) | Håller ihop gruppens Scrum-arbete. Ansvarar för att daily standups, sprint review och retrospective genomförs. Hjälper gruppen att hålla fokus på sprintmålet och lyfter hinder som påverkar arbetet. |
+| Scrum Master | [Ali Sulaiman](https://github.com/alisulaiman-debug) | Håller ihop gruppens Scrum-arbete. Ansvarar för att daily standups, sprint review och retrospective genomförs. Hjälper gruppen att hålla fokus på sprintmålet och lyfter hinder som påverkar arbetet. |
 | Utvecklare | [Micael Engdahl](https://github.com/icemanic) | Bygger och testar delar av lösningen. Arbetar med script, dokumentation, testmiljö och andra issues som behövs för att få onboarding-flödet att fungera. |
-| Utvecklare | [Ali Sulaiman](https://github.com/alisulaiman-debug) | Bygger och testar delar av lösningen. Arbetar med script, dokumentation, testmiljö och andra issues som behövs för att få onboarding-flödet att fungera. |
+| Utvecklare | [Martin Hansson Palm](https://github.com/DrWeremoth) | Bygger och testar delar av lösningen. Arbetar med script, dokumentation, testmiljö och andra issues som behövs för att få onboarding-flödet att fungera. |
 | Utvecklare | [Zahra Hadadi](https://github.com/zahra-hadadi) | Bygger och testar delar av lösningen. Arbetar med script, dokumentation, testmiljö och andra issues som behövs för att få onboarding-flödet att fungera. |
 
 Rollerna hjälper oss att fördela ansvar, men alla i gruppen hjälps åt med kod, testning, dokumentation och att hålla arbetet uppdaterat.
