@@ -1,1 +1,51 @@
-"_TEMP_INFO_REMOVE_BEFORE_USE": "Detta är en exempelfil. Se config/README.md för förklaring.",
+[
+    {
+        "firstName": "Emma",
+        "lastName": "Andersen",
+        "username": "eandersen",
+        "title": "Lärare",
+        "organizationUnit": "OU=Skolan,DC=exempel,DC=com",
+        "department": "Barn och utbildning",
+        "groups": ["Lärare","Pedagoger"],
+        "license": "Microsoft 365 E3",
+        "homeFolder": "\\\\fileserver\\users\\eandersen",
+        "email": "emma.andersen@kommunen.se"
+    },
+    {
+        "firstName": "Lukas",
+        "lastName": "Nilsen",
+        "username": "lnilsen",
+        "title": "Supporttekniker",
+        "organizationUnit": "OU=IT,DC=exempel,DC=com",
+        "department": "Tekniska förvaltningen",
+        "groups": ["IT_Support","Helpdesk"],
+        "license": "Microsoft 365 Business Standard",
+        "homeFolder": "\\\\fileserver\\users\\lnilsen",
+        "email": "lukas.nilsen@kommunen.se"
+    }
+    ,
+    {
+        "firstName": "Amelia",
+        "lastName": "Berg",
+        "username": "aberg",
+        "title": "Projektledare",
+        "organizationUnit": "OU=Proj,DC=exempel,DC=com",
+        "department": "Projekt",
+        "groups": ["ProjectManagers","Office365"],
+        "license": "Microsoft 365 E5",
+        "homeFolder": "\\\\fileserver\\home\\aberg",
+        "email": "amelia.berg@kommunen.se"
+    },
+    {
+        "firstName": "Erik",
+        "lastName": "Karlsson",
+        "username": "ekarlsson",
+        "title": "Ekonom",
+        "organizationUnit": "OU=Ekonomi,DC=exempel,DC=com",
+        "department": "Ekonomi",
+        "groups": ["Finance","SAP_Users"],
+        "license": "Microsoft 365 Business Premium",
+        "homeFolder": "\\\\fileserver\\home\\ekarlsson",
+        "email": "erik.karlsson@kommunen.se"
+    }
+]
