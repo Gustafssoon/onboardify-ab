@@ -4,70 +4,118 @@
 # Den sparar loggar i en fil och visar dem i konsolen.
 # ==========================================
 
-# VARIABLER
+# VARIABLER.
 
-# Här sparas mappen där loggar ska ligga
+# Här sparas mappen där loggar ska ligga.
 $script:LogFolder = "C:\Logs"
 
-# Här sparas sökvägen till loggfilen
+# Här sparas sökvägen till loggfilen.
 $script:LogFile = $null
 
 
-# STARTA LOGGNING
+# STARTA LOGGNING.
 function Initialize-OnboardifyLog {
 
     param(
-        # Här kan man välja egen mapp för loggar
+        # Här kan man välja egen mapp för loggar.
         [string]$Path = "C:\Logs"
     )
 
-    # Sätter loggmappen
-    $script:LogFolder = $Path
+    # Försöker utföra hela logginitieringen
+    # Om något går fel hamnar vi i Catch-blocket.
+    try {
 
-    # Kollar om mappen finns
-    # Om inte → skapa den
-    if (!(Test-Path $script:LogFolder)) {
-        New-Item -Path $script:LogFolder -ItemType Directory -Force -ErrorAction Stop | Out-Null
+        # Sätter loggmappen.
+        $script:LogFolder = $Path
+
+        # Kollar om mappen finns
+        # Om inte → skapa den.
+        if (!(Test-Path $script:LogFolder)) {
+
+            # -ErrorAction Stop gör att PowerShell kastar
+            # ett fel som kan fångas av Try/Catch.
+            New-Item `
+                -Path $script:LogFolder `
+                -ItemType Directory `
+                -Force `
+                -ErrorAction Stop | Out-Null
+        }
+
+        # Skapar en loggfil med dagens datum.
+        $script:LogFile = Join-Path `
+            $script:LogFolder `
+            "onboardify_$(Get-Date -Format 'yyyyMMdd').log"
     }
 
-    # Skapar en loggfil med dagens datum
-    $script:LogFile = Join-Path `
-        $script:LogFolder `
-        "onboardify_$(Get-Date -Format 'yyyyMMdd').log"
+    # Körs om något fel uppstår i Try-blocket.
+    catch {
+
+        # $_ innehåller information om felet.
+        # Exception.Message innehåller själva feltexten.
+        Write-Error `
+            "Kunde inte initiera loggningen: $($_.Exception.Message)"
+
+        # throw skickar vidare felet till den funktion
+        # eller det script som anropade funktionen.
+        throw
+    }
 }
 
 
-# SKRIVER LOGG
+# SKRIVER LOGG.
 function Write-OnboardifyLog {
 
     param(
-        # Meddelandet som ska loggas
+
+        # Meddelandet som ska loggas.
         [string]$Message,
 
-        # Typ av logg (INFO, OK, VARNING, FEL)
+        # Typ av logg (INFO, OK, VARNING, FEL).
+        [ValidateSet("INFO","OK","VARNING","FEL")]
         [string]$Level = "INFO"
     )
 
     # Om loggning inte är startad ännu
-    # så startas den automatiskt
-    if ($null -eq $script:LogFile) {
-        Initialize-OnboardifyLog
-    }
+    # så försäkrar detta att den startas automatiskt. 
+    # Kollar både Logfile och LogFolder.
+    if ($null -eq $script:LogFile -or $null -eq $script:LogFolder) {
+    Initialize-OnboardifyLog
+}
 
-    # Skapar en loggrad med tid, nivå och meddelande
+    # Skapar en loggrad med tid, nivå och meddelande.
     $LogEntry = @{
         Timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
         Level     = $Level
         Message   = $Message
     }
 
-    # Gör om loggen till text (JSON)
+    # Gör om loggen till text (JSON).
     $JsonLog = $LogEntry | ConvertTo-Json -Compress
 
-    # Sparar loggen i filen
-    Add-Content -Path $script:LogFile -Value $JsonLog
+    # Försöker skriva loggen till fil.
+    try {
 
-    # Visar loggen i konsolen med färger
+        # Sparar loggen i filen.
+        # -ErrorAction Stop gör att eventuella fel
+        # kan fångas av Catch-blocket.
+        Add-Content `
+            -Path $script:LogFile `
+            -Value $JsonLog `
+            -ErrorAction Stop
+    }
+
+    # Körs om filen inte kan skrivas till.
+    catch {
+
+        # Visar detaljerad information om felet.
+        Write-Error `
+            "Kunde inte skriva till loggfilen: $($_.Exception.Message)"
+
+        # Avslutar funktionen direkt.
+        return
+    }
+
+    # Visar loggen i konsolen med färger.
     switch ($Level) {
 
         "INFO" {
@@ -86,7 +134,7 @@ function Write-OnboardifyLog {
             Write-Host $JsonLog -ForegroundColor Red
         }
 
-        # Om något annat används
+        # Om något annat används.
         default {
             Write-Host $JsonLog
         }
@@ -94,16 +142,16 @@ function Write-OnboardifyLog {
 }
 
 
-# HÄMTA LOGGFIL
+# HÄMTA LOGGFIL.
 function Get-OnboardifyLogFile {
 
-    # Visar vilken loggfil som används just nu
+    # Visar vilken loggfil som används just nu.
     return $script:LogFile
 }
 
 
 # EXPORT
-# Gör funktionerna möjliga att använda i andra script
+# Gör funktionerna möjliga att använda i andra script.
 Export-ModuleMember `
     -Function `
         Initialize-OnboardifyLog,
