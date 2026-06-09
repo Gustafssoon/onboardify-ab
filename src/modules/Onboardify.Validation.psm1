@@ -26,7 +26,7 @@ function Test-OnboardifyUserData {
 }
 
 # Testdata för att verifiera att valideringen fungerar som den ska. Den sista användaren har en tom FirstName och bör inte passera valideringen.
-
+<#
 $testUsers = @(
     @{
         FirstName = 'John'
@@ -46,3 +46,4 @@ $testUsers = @(
 )
 
 Test-OnboardifyUserData -Users $testUsers
+#>
