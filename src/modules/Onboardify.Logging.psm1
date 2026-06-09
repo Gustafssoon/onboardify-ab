@@ -1,8 +1,12 @@
-# Onboardify.Logging.psm1
+﻿# Onboardify.Logging.psm1
 # ==========================================
 # Den här modulen används för loggning.
 # Den sparar loggar i en fil och visar dem i konsolen.
 # ==========================================
+
+# Ser till att svenska tecken som å, ä och ö visas rätt i terminalen
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
 
 # VARIABLER.
 
