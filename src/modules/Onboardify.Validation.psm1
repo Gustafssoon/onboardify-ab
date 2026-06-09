@@ -22,6 +22,9 @@ function Test-OnboardifyUserData {
         "email"
     )
 
+    <# Loopar igenom varje användare och kontrollerar att alla nödvändiga fält finns och inte är tomma.
+     Om något fält saknas eller är tomt, skrivs ett meddelande ut och funktionen returnerar $false.
+    Om alla fält är giltiga, skrivs ett bekräftelsemeddelande ut och funktionen returnerar $true.#>
     foreach ($user in $Users) {
         foreach ($field in $requiredFields) {
             if (-not $user.ContainsKey($field) -or [string]::IsNullOrEmpty($user[$field])) {
