@@ -27,7 +27,7 @@ function Initialize-OnboardifyLog {
     # Kollar om mappen finns
     # Om inte → skapa den
     if (!(Test-Path $script:LogFolder)) {
-        New-Item -Path $script:LogFolder -ItemType Directory | Out-Null
+        New-Item -Path $script:LogFolder -ItemType Directory -Force -ErrorAction Stop | Out-Null
     }
 
     # Skapar en loggfil med dagens datum
