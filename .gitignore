@@ -1,0 +1,19 @@
+# Loggfiler
+logs/
+*.log
+
+# Temporära filer
+*.tmp
+*.bak
+
+# PowerShell tillfälliga filer
+*.ps1xml
+*.pssc
+*.psrc
+
+# Windows / macOS
+Thumbs.db
+.DS_Store
+
+# VS Code lokal workspace
+.vscode/
