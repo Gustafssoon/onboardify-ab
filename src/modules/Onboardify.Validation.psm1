@@ -1,14 +1,16 @@
 # Onboardify.Validation.psm1
 
-# Funktion för att validera användardata innan den används i onboarding-flödet. Den kontrollerar att alla nödvändiga fält finns och inte är tomma.
+# Funktion för att validera användardata innan den används i onboarding-flödet.
+# Den kontrollerar att alla nödvändiga fält finns och inte är tomma.
 function Test-OnboardifyUserData {
     [CmdletBinding()]
     param (
+        # Lista med användare som ska valideras.
         [Parameter(Mandatory = $true)]
         [array]$Users
     )
-    
-    # Definierar de fält som valideras för varje användare.
+
+    # Definierar de fält som måste finnas för varje användare.
     $requiredFields = @(
         "firstName",
         "lastName",
@@ -22,20 +24,39 @@ function Test-OnboardifyUserData {
         "email"
     )
 
-    <# Loopar igenom varje användare och kontrollerar att alla nödvändiga fält finns och inte är tomma.
-     Om något fält saknas eller är tomt, skrivs ett meddelande ut och funktionen returnerar $false.
-    Om alla fält är giltiga, skrivs ett bekräftelsemeddelande ut och funktionen returnerar $true.#>
+    <#
+    Loopar igenom varje användare och kontrollerar att alla nödvändiga fält finns och inte är tomma.
+
+    JSON-data som läses in med ConvertFrom-Json blir PowerShell-objekt.
+    Därför kontrollerar vi fält med PSObject.Properties.Name istället för ContainsKey.
+
+    Om något fält saknas eller är tomt skrivs ett felmeddelande ut och funktionen returnerar $false.
+    Om alla användare är giltiga returnerar funktionen $true.
+    #>
     foreach ($user in $Users) {
+
         foreach ($field in $requiredFields) {
-            if (-not $user.ContainsKey($field) -or [string]::IsNullOrEmpty($user[$field])) {
-                Write-Host "Användardata saknas för fält: $field",
+
+            # Kontrollerar att fältet finns på användarobjektet.
+            if (-not ($user.PSObject.Properties.Name -contains $field)) {
+                Write-Host "Användardata saknar fält: $field" -ForegroundColor Red
                 return $false
             }
 
-            else {
-                Write-Host "Användardata för $($user['FirstName']) $($user['LastName']) är giltig.",
-                return $true
+            # Hämtar värdet från fältet som kontrolleras.
+            $value = $user.$field
+
+            # Kontrollerar att fältet inte är tomt.
+            if ($null -eq $value -or [string]::IsNullOrWhiteSpace($value.ToString())) {
+                Write-Host "Användardata har tomt fält: $field" -ForegroundColor Red
+                return $false
             }
         }
+
+        # Skrivs ut när en användare har passerat alla kontroller.
+        Write-Host "Användardata för $($user.firstName) $($user.lastName) är giltig." -ForegroundColor Green
     }
+
+    # Om alla användare har kontrollerats utan fel returneras true.
+    return $true
 }
