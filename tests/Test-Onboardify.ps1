@@ -5,10 +5,11 @@ $ErrorActionPreference = "Stop"
 
 Write-Host "Startar tester för Onboardify..." -ForegroundColor Cyan
 
-# Sökvägar till moduler
+# Sökvägar till moduler och testdata
 $ImportModulePath = ".\src\modules\Onboardify.Import.psm1"
 $ValidationModulePath = ".\src\modules\Onboardify.Validation.psm1"
 $LoggingModulePath = ".\src\modules\Onboardify.Logging.psm1"
+$TestDataPath = ".\config\customer.sample.json"
 
 try {
     Write-Host ""
@@ -63,6 +64,38 @@ try {
     }
 
     Write-Host "OK - Viktiga funktioner finns" -ForegroundColor Green
+
+
+    Write-Host ""
+    Write-Host "Test 4: Testar loggning"
+
+    Initialize-OnboardifyLog -Path ".\logs\test"
+    Write-OnboardifyLog -Message "Test av loggning från testscript" -Level "INFO"
+
+    $LogFile = Get-OnboardifyLogFile
+
+    if (-not (Test-Path $LogFile)) {
+        throw "Loggfilen skapades inte."
+    }
+
+    Write-Host "OK - Loggning fungerar" -ForegroundColor Green
+
+
+    Write-Host ""
+    Write-Host "Test 5: Läser in JSON-data"
+
+    if (-not (Test-Path $TestDataPath)) {
+        throw "Testdata saknas."
+    }
+
+    $Users = @(Import-OnboardifyUserData -Path $TestDataPath)
+
+    if ($Users.Count -eq 0) {
+        throw "Ingen användardata lästes in."
+    }
+
+    Write-Host "OK - JSON-data lästes in" -ForegroundColor Green
+    Write-Host "Antal användare: $($Users.Count)"
 
 
     Write-Host ""
