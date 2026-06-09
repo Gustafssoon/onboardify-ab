@@ -39,26 +39,3 @@ function Test-OnboardifyUserData {
         }
     }
 }
-
-# Testdata för att verifiera att valideringen fungerar som den ska. Den sista användaren har en tom FirstName och bör inte passera valideringen.
-<#
-$testUsers = @(
-    @{
-        FirstName = 'John'
-        LastName  = 'Doe'
-        Email     = 'john.doe@example.com'
-    },
-    @{
-        FirstName = 'Jane'
-        LastName  = 'Smith'
-        Email     = 'jane.smith@example.com'
-    },
-    @{
-        FirstName = ''
-        LastName  = 'Johnson'
-        Email     = 'bob.johnson@example.com'
-    }
-)
-
-Test-OnboardifyUserData -Users $testUsers
-#>
