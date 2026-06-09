@@ -40,6 +40,32 @@ try {
 
 
     Write-Host ""
+    Write-Host "Test 3: Kontrollerar att viktiga funktioner finns"
+
+    if (-not (Get-Command Import-OnboardifyUserData -ErrorAction SilentlyContinue)) {
+        throw "Funktionen Import-OnboardifyUserData saknas."
+    }
+
+    if (-not (Get-Command Test-OnboardifyUserData -ErrorAction SilentlyContinue)) {
+        throw "Funktionen Test-OnboardifyUserData saknas."
+    }
+
+    if (-not (Get-Command Initialize-OnboardifyLog -ErrorAction SilentlyContinue)) {
+        throw "Funktionen Initialize-OnboardifyLog saknas."
+    }
+
+    if (-not (Get-Command Write-OnboardifyLog -ErrorAction SilentlyContinue)) {
+        throw "Funktionen Write-OnboardifyLog saknas."
+    }
+
+    if (-not (Get-Command Get-OnboardifyLogFile -ErrorAction SilentlyContinue)) {
+        throw "Funktionen Get-OnboardifyLogFile saknas."
+    }
+
+    Write-Host "OK - Viktiga funktioner finns" -ForegroundColor Green
+
+
+    Write-Host ""
     Write-Host "Testscriptet är klart." -ForegroundColor Green
 }
 catch {
