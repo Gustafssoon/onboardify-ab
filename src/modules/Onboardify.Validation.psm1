@@ -8,7 +8,19 @@ function Test-OnboardifyUserData {
         [array]$Users
     )
     
-    $requiredFields = @('FirstName', 'LastName', 'Email')
+    # Definierar de fält som valideras för varje användare.
+    $requiredFields = @(
+        "firstName",
+        "lastName",
+        "username",
+        "title",
+        "organizationUnit",
+        "department",
+        "groups",
+        "license",
+        "homeFolder",
+        "email"
+    )
 
     foreach ($user in $Users) {
         foreach ($field in $requiredFields) {
