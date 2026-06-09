@@ -1,4 +1,8 @@
-# Onboardify.Validation.psm1
+﻿# Onboardify.Validation.psm1
+
+# Ser till att svenska tecken som å, ä och ö visas rätt i terminalen
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
 
 # Funktion för att validera användardata innan den används i onboarding-flödet.
 # Den kontrollerar att alla nödvändiga fält finns och inte är tomma.
