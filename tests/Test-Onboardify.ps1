@@ -99,7 +99,19 @@ try {
 
 
     Write-Host ""
-    Write-Host "Testscriptet är klart." -ForegroundColor Green
+    Write-Host "Test 6: Validerar användardata"
+
+    $ValidationResult = Test-OnboardifyUserData -Users $Users
+
+    if ($ValidationResult -ne $true) {
+        throw "Valideringen returnerade inte true."
+    }
+
+    Write-Host "OK - Användardata validerades" -ForegroundColor Green
+
+
+    Write-Host ""
+    Write-Host "Alla tester lyckades!" -ForegroundColor Green
 }
 catch {
     Write-Host ""
