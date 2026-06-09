@@ -80,7 +80,7 @@ function Write-OnboardifyLog {
     # Kollar både Logfile och LogFolder.
     if ($null -eq $script:LogFile -or $null -eq $script:LogFolder) {
     Initialize-OnboardifyLog
-}
+    }
 
     # Skapar en loggrad med tid, nivå och meddelande.
     $LogEntry = @{
