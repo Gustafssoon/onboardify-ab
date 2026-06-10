@@ -23,5 +23,11 @@ function New-OnboardifyADUser {
         "displayName" = "$($User.firstName) $($User.lastName)"
         "mail" = $User.email
     }
+
+    #Kontrollera att användaren inte redan finns i AD
+    if (Get-ADUser -Filter { sAMAccountName -eq $username }) {
+        Write-Host "Användaren $username finns redan i AD."
+        return
+    }
 }
         
