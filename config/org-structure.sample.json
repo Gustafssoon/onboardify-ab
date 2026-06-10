@@ -1,1 +1,29 @@
-"_TEMP_INFO_REMOVE_BEFORE_USE": "Detta är en exempelfil. Se config/README.md för förklaring.",
+{
+  "Kommunledning": {
+    "OU": "OU=Användare,OU=Kommunledningsförvaltningen,OU=Förvaltningar,OU=Demokommun,OU=Onboardify"
+  },
+
+  "KulturOchFritid": {
+    "OU": "OU=Användare,OU=Kultur- och fritidsförvaltningen,OU=Förvaltningar,OU=Demokommun,OU=Onboardify"
+  },
+
+  "Samhallsbyggnad": {
+    "OU": "OU=Användare,OU=Samhällsbyggnadsförvaltningen,OU=Förvaltningar,OU=Demokommun,OU=Onboardify"
+  },
+
+  "Socialforvaltning": {
+    "OU": "OU=Användare,OU=Socialförvaltningen,OU=Förvaltningar,OU=Demokommun,OU=Onboardify"
+  },
+
+  "Utbildningsforvaltning": {
+    "OU": "OU=Användare,OU=Utbildningsförvaltningen,OU=Förvaltningar,OU=Demokommun,OU=Onboardify"
+  },
+
+  "BostaderAB": {
+    "OU": "OU=Användare,OU=Bostäder AB,OU=Kommunala bolag,OU=Demokommun,OU=Onboardify"
+  },
+
+  "EnergiAB": {
+    "OU": "OU=Användare,OU=Energi AB,OU=Kommunala bolag,OU=Demokommun,OU=Onboardify"
+  }
+}

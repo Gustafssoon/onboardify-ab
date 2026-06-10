@@ -1,1 +1,10 @@
-"_TEMP_INFO_REMOVE_BEFORE_USE": "Detta är en exempelfil. Se config/README.md för förklaring.",
+{
+  "Licenser": [
+    "Microsoft 365 F3",
+    "Microsoft 365 E3",
+    "Microsoft 365 E5",
+    "Microsoft 365 Business Standard",
+    "Microsoft 365 Business Premium",
+    "Copilot"
+  ]
+}
