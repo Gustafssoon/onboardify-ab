@@ -29,8 +29,8 @@ Denna sprint lägger grunden för hela onboarding-systemet. Genom att definiera 
 | #20   | Skapa loggning för onboarding-processen         | Micael       | To Do  |
 | #23   | Dokumentera förändringsledning för HR           | Ali          | To Do  |
 | #35   | Skapa importfunktion för onboarding-data        | Zahra        | To Do  |
-| #36   | Skapa huvudscript som kör onboarding-flödet     | Ej tilldelad | To Do  |
-| #37   | Koppla ihop PowerShell-moduler med huvudscript  | Ej tilldelad | To Do  |
+| #36   | Skapa huvudscript som kör onboarding-flödet     | Gabriel      | To Do  |
+| #37   | Koppla ihop PowerShell-moduler med huvudscript  | Gabriel      | To Do  |
 | #40   | Dokumentera daily standups – Sprint 1           | Ali          | To Do  |
 | #41   | Dokumentera sprint review – Sprint 1            | Ali          | To Do  |
 | #58   | Uppdatera dokumentation med Scrum-roller        | Gabriel      | To Do  |

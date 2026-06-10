@@ -1,0 +1,16 @@
+[
+{
+"firstName": "Rickard",
+"lastName": "Rickardsson",
+"username": "ricri",
+"title": "Testanvändare",
+"organizationUnit": "OU=FinnsInte,OU=Demokommun,OU=Onboardify,DC=onboardify,DC=local",
+"department": "IT",
+"groups": [
+"IT_Support"
+],
+"license": "Microsoft 365 E3",
+"homeFolder": "\\fileserver\users\ricri",
+"email": "[rickard.rickardsson@onboardify.local](mailto:rickard.rickardsson@onboardify.local)"
+}
+]
