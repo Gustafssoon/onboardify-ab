@@ -26,10 +26,12 @@ function New-OnboardifyADUser {
         Write-Host "Användaren $username finns redan i AD."
         return
     }
-    
-    #Skapa användaren i AD med randomizerat lösenord med 12 tecken och 2 icke-alfanumeriska tecken.
-    $password = [System.Web.Security.Membership]::GeneratePassword(12, 2)
-    New-ADUser @userAttributes -AccountPassword (ConvertTo-SecureString $password -AsPlainText -Force) -enabled $true
-    Write-Host "Användaren $username har skapats i AD med lösenord: $password"
+    else {
+        #Skapa användaren i AD med randomizerat lösenord med 12 tecken och 2 icke-alfanumeriska tecken.
+        $password = [System.Web.Security.Membership]::GeneratePassword(12, 2)
+        New-ADUser @userAttributes -AccountPassword (ConvertTo-SecureString $password -AsPlainText -Force) -enabled $true
+        Write-Host "Användaren $username har skapats i AD med lösenord: $password"
+        return
+    }
 }
         
