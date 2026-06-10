@@ -1,8 +1,11 @@
 ﻿# Tar emot sökvägen till datafilen som parameter när scriptet körs
+# Lade till en switch för DemoMode ska inte påverka AD.
 param(
     [Parameter(Mandatory = $true)]
     [ValidateNotNullOrEmpty()]
-    [string]$DataPath
+    [string]$DataPath,
+
+    [switch]$DemoMode
 )
 
 # Gör så att fel stoppar scriptet och kan hanteras med Try/Catch
@@ -36,6 +39,10 @@ try {
     Write-OnboardifyLog "Startar onboarding-script..."
     Write-OnboardifyLog "Datafil: $DataPath"
 
+if ($DemoMode) {
+    #Lade till en if att om DemoMode är aktiverat skickas detta meddelande.
+    Write-OnboardifyLog "[DEMO] Demo-läge aktiverat inga ändringar sker i AD"
+}
     # Läser in användare från datafilen
     $users = @(Import-OnboardifyUserData -Path $DataPath)
 
@@ -68,6 +75,11 @@ try {
         Write-OnboardifyLog "Onboarding-flöde klart för $($user.firstName) $($user.lastName)"
     }
 
+    if ($DemoMode) {
+        #Avslutingen av logg för demokörning.
+        Write-OnboardifyLog "[DEMO] Onboarding-script klart."
+    }
+    
     Write-OnboardifyLog "Onboarding-script klart."
 }
 catch {
