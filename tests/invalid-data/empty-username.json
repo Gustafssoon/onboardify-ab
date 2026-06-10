@@ -1,0 +1,16 @@
+[
+{
+"firstName": "Tom",
+"lastName": "Tomsson",
+"username": "",
+"title": "Testanvändare",
+"organizationUnit": "OU=IT,OU=Demokommun,OU=Onboardify,DC=onboardify,DC=local",
+"department": "IT",
+"groups": [
+"IT_Support"
+],
+"license": "Microsoft 365 E3",
+"homeFolder": "\\fileserver\users\tom.tomsson",
+"email": "[tom.tomsson@onboardify.local](mailto:tom.tomsson@onboardify.local)"
+}
+]
