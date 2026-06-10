@@ -6,10 +6,7 @@ function New-OnboardifyADUser {
     [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true)]
-        [PSObject]$User,
-
-        [Parameter(Mandatory = $false)]
-        [string]$Path = 'CN=Users,DC=example,DC=com'
+        [PSObject]$User
     )
 
     #Skapa användarnamn genom att kombinera förnamn och efternamn
@@ -30,9 +27,9 @@ function New-OnboardifyADUser {
         return
     }
     
-    #Skapa användaren i AD med randomizerat lösenord med 12 tecken och 2 icke-alfanumeriska tecken. Användaren aktiveras direkt och placeras i angiven OU.
+    #Skapa användaren i AD med randomizerat lösenord med 12 tecken och 2 icke-alfanumeriska tecken.
     $password = [System.Web.Security.Membership]::GeneratePassword(12, 2)
-    New-ADUser @userAttributes -AccountPassword (ConvertTo-SecureString $password -AsPlainText -Force) -Enabled $true -Path $Path
+    New-ADUser @userAttributes -AccountPassword (ConvertTo-SecureString $password -AsPlainText -Force) -enabled $true
     Write-Host "Användaren $username har skapats i AD med lösenord: $password"
 }
         
