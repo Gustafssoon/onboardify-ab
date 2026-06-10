@@ -1,0 +1,16 @@
+[
+{
+"firstName": "Gustav",
+"lastName": "Gustavsson",
+"username": "gusga",
+"title": "Testanvändare",
+"organizationUnit": "OU=IT,OU=Demokommun,OU=Onboardify,DC=onboardify,DC=local",
+"department": "IT",
+"groups": [
+"Grupp_Som_Inte_Finns"
+],
+"license": "Microsoft 365 E3",
+"homeFolder": "\\fileserver\users\gusga",
+"email": "[gustav.gustavsson@onboardify.local](mailto:gustav.gustavsson@onboardify.local)"
+}
+]
