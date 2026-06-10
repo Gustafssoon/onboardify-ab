@@ -14,5 +14,14 @@ function New-OnboardifyADUser {
 
     #Skapa användarnamn genom att kombinera förnamn och efternamn
     $username = ($User.firstName.Substring(0,1) + $User.lastName).ToLower()
+
+    #Skapa en tabell med de attribut som skall användas för att skapa användaren i AD
+    $userAttributes = @{
+        "sAMAccountName" = $username
+        "givenName" = $User.firstName
+        "sn" = $User.lastName
+        "displayName" = "$($User.firstName) $($User.lastName)"
+        "mail" = $User.email
+    }
 }
         
