@@ -49,8 +49,11 @@ try {
         throw "Ingen onboarding-data kunde läsas in."
     }
 
-    # Validerar datan innan något skapas
-    Test-OnboardifyUserData -Users $users
+    # Validerar datan innan något skapas.
+    # Om valideringen misslyckas avbryts scriptet så att inga felaktiga objekt skapas.
+    if (-not (Test-OnboardifyUserData -Users $users)) {
+        throw "Valideringen misslyckades. Onboarding avbryts."
+    }
 
     Write-OnboardifyLog "Onboarding-data har lästs in."
     Write-OnboardifyLog "Antal användare: $($users.Count)"
