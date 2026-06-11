@@ -70,13 +70,17 @@ try {
     foreach ($user in $users) {
         Write-OnboardifyLog "Startar onboarding för $($user.firstName) $($user.lastName)"
 
+        # Skapar användarnamn på samma sätt som AD-modulen.
+        # Detta gör att AD-konto och hemkatalog får samma namn.
+        $username = ($user.firstName.Substring(0, 1) + $user.lastName).ToLower()
+
         # Skapar AD-användaren med hjälp av AD-modulen.
-        # AD-modulen ansvarar för användarens attribut och gruppmedlemskap.
+        # AD-modulen ansvarar för användarens attribut, OU-placering och gruppmedlemskap.
         New-OnboardifyADUser -User $user
 
         # Skapar hemkatalog för användaren.
-        # Funktionen tar emot användarnamnet, därför skickas $user.username.
-        New-OnboardifyHomeFolder -UserName $user.username
+        # Samma användarnamn används här som vid skapandet av AD-kontot.
+        New-OnboardifyHomeFolder -UserName $username
 
         Write-OnboardifyLog "Onboarding-flöde klart för $($user.firstName) $($user.lastName)"
     }
