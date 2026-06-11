@@ -13,17 +13,25 @@ $ErrorActionPreference = "Stop"
 $OutputEncoding = [System.Text.Encoding]::UTF8
 
 try {
-    # Importerar projektets moduler
+    # Importerar projektets grundmoduler.
+    # Dessa behövs för att läsa in data, validera data och skriva loggar.
     Import-Module (Join-Path $PSScriptRoot "modules\Onboardify.Import.psm1") -Force
     Import-Module (Join-Path $PSScriptRoot "modules\Onboardify.Validation.psm1") -Force
     Import-Module (Join-Path $PSScriptRoot "modules\Onboardify.Logging.psm1") -Force
 
-    # Kontrollerar att huvudscriptets grundfunktioner finns efter att modulerna har importerats.
-    # Om en funktion saknas stoppas scriptet direkt.
+    # Importerar moduler för AD-användare och hemkataloger.
+    # Dessa används senare i huvudflödet för varje användare.
+    Import-Module (Join-Path $PSScriptRoot "modules\Onboardify.AD.psm1") -Force
+    Import-Module (Join-Path $PSScriptRoot "modules\Onboardify.Folders.psm1") -Force
+
+    # Kontrollerar att funktionerna som huvudscriptet behöver finns.
+    # Om någon funktion saknas stoppas scriptet direkt med ett tydligt fel.
     $requiredFunctions = @(
         "Import-OnboardifyUserData",
         "Test-OnboardifyUserData",
-        "Write-OnboardifyLog"
+        "Write-OnboardifyLog",
+        "New-OnboardifyADUser",
+        "New-OnboardifyHomeFolder"
     )
 
     foreach ($functionName in $requiredFunctions) {
