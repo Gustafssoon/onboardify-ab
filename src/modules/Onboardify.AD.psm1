@@ -25,15 +25,16 @@ function New-OnboardifyADUser {
     }
 
     try {
-        #Kontrollera att användaren inte redan finns i AD
+        #Kontrollera om användaren redan finns i AD
         if (Get-ADUser -Filter { sAMAccountName -eq $username }) {
-            throw "Användaren $username finns redan i AD."
+            Write-Host "Användaren $username finns redan i AD." -ForegroundColor Yellow
+            return
         }
         else {
             #Skapa användaren i AD med attribut från $userAttributes och randomizerat lösenord med 12 tecken och 2 icke-alfanumeriska tecken.
             $password = [System.Web.Security.Membership]::GeneratePassword(12, 2)
             New-ADUser @userAttributes -AccountPassword (ConvertTo-SecureString $password -AsPlainText -Force) -enabled $true
-            Write-Host "Användaren $username har skapats i AD med lösenord: $password"
+            Write-Host "Användaren $username har skapats i AD med lösenord: $password" -ForegroundColor Green
         }
 
     }
