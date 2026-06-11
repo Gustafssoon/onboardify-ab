@@ -60,6 +60,16 @@ if ($DemoMode) {
     foreach ($user in $users) {
         Write-OnboardifyLog "Startar onboarding för $($user.firstName) $($user.lastName)"
 
+        if ($DemoMode) {
+            Write-OnboardifyLog "[DEMO] Skulle skapat en AD användare för $($user.firstname) $($user.lastname)"
+            Write-OnboardifyLog "[DEMO] Skulle placerat användaren i rätt OU (placeholder)"
+            Write-OnboardifyLog "[DEMO] Skulle placerat användaren i grupper (placeholder)"
+            Write-OnboardifyLog "[DEMO] Skulle skapat hemkatalogen"
+        }
+        else {
+            #AD funktioner här.
+        }
+
         # TODO: Koppla till AD-modul när funktionen finns
         # New-OnboardifyADUser -User $user
 
