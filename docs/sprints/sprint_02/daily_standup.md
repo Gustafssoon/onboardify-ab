@@ -106,3 +106,85 @@
 * Testa fler scenarier med felaktig data.
 * Förbereda kommande integrationstestning mot Active Directory.
 * Fortsätta hålla GitHub-tavlan uppdaterad.
+
+# Daily Standup – 2026-06-11
+
+## Vad har vi gjort sedan förra mötet?
+
+### Ali
+
+* Dokumenterat Sprint Plan 2.
+* Dokumenterat Daily Scrum för 2026-06-10.
+
+### Gabriel
+
+* Testat den felaktiga testdatan som skapats för validering.
+* Genomfört kodgranskning av gruppens Pull Requests.
+* Skapat två nya spikes:
+
+  * Utvärdera valideringsmodulen.
+  * Utvärdera generering av användarnamn och e-postadresser.
+* Påbörjat uppdatering av README-dokumentationen.
+
+### Martin
+
+* Slutfört Issue #17 – Placera användare i rätt OU.
+* Slutfört Issue #18 – Lägga användare i grupper.
+* Påbörjat arbete med huvudscriptet.
+
+### Zahra
+
+* Slutfört Issue #19 – Skapa hemkatalog för ny användare.
+* Implementerat skapande av hemkatalog.
+* Lagt till kontroll om katalogen redan finns.
+* Implementerat felhantering med Try/Catch.
+* Testat funktionen med testanvändare.
+* Skapat Pull Request som blivit godkänd.
+
+### Micael
+
+* Implementerat demo-läge i onboarding-flödet.
+* Genomfört tester med JSON-data och användare.
+* Verifierat att loggning fungerar som förväntat.
+* Förbereder vidare testning mot Active Directory.
+
+---
+
+## Vad ska vi göra tills nästa möte?
+
+### Ali
+
+* Fortsätta dokumentera Sprint 2.
+* Uppdatera Sprint Review.
+* Följa upp sprintdokumentationen.
+
+### Gabriel
+
+* Uppdatera README-dokumentationen.
+* Fortsätta arbeta med Active Directory-relaterade delar.
+
+### Martin
+
+* Fortsätta arbete med huvudscriptet.
+
+### Zahra
+
+* Vidareutveckla hemkatalogsfunktionen vid behov.
+
+### Micael
+
+* Slutföra och testa demo-läget mot Active Directory.
+
+---
+
+## Finns det några hinder eller problem?
+
+### Gruppens status
+
+* Inga större hinder rapporterades.
+
+### Identifierade risker
+
+* Merge-konflikter uppstod men kunde lösas utan större problem.
+* Funktionerna behöver fortfarande verifieras i en riktig Active Directory-miljö.
+* Huvudscriptet riskerar att bli omfattande och kan behöva delas upp i framtiden.
