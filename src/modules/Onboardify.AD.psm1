@@ -6,6 +6,7 @@ function New-OnboardifyADUser {
     [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
         [PSObject]$User
     )
 
@@ -19,15 +20,17 @@ function New-OnboardifyADUser {
         "sn" = $User.lastName
         "displayName" = "$($User.firstName) $($User.lastName)"
         "mail" = $User.email
+        "Path" = $User.organizationUnit
+        "memberOf" = $User.groups
     }
 
     #Kontrollera att användaren inte redan finns i AD
     if (Get-ADUser -Filter { sAMAccountName -eq $username }) {
-        Write-Host "Användaren $username finns redan i AD."
+        throw "Användaren $username finns redan i AD."
         return
     }
     else {
-        #Skapa användaren i AD med randomizerat lösenord med 12 tecken och 2 icke-alfanumeriska tecken.
+        #Skapa användaren i AD med attribut från $userAttributes och randomizerat lösenord med 12 tecken och 2 icke-alfanumeriska tecken.
         $password = [System.Web.Security.Membership]::GeneratePassword(12, 2)
         New-ADUser @userAttributes -AccountPassword (ConvertTo-SecureString $password -AsPlainText -Force) -enabled $true
         Write-Host "Användaren $username har skapats i AD med lösenord: $password"
