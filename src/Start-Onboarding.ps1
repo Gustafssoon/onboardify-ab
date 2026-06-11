@@ -80,8 +80,9 @@ try {
         # TODO: Koppla till gruppfunktion när den finns
         # Add-OnboardifyUserGroups -User $user
 
-        # TODO: Koppla till hemkatalogfunktion när den finns
-        # New-OnboardifyHomeFolder -User $user
+        # Skapar hemkatalog för användaren.
+        # Funktionen tar emot användarnamnet, därför skickas $user.username.
+        New-OnboardifyHomeFolder -UserName $user.username
 
         Write-OnboardifyLog "Onboarding-flöde klart för $($user.firstName) $($user.lastName)"
     }
