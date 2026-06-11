@@ -18,7 +18,8 @@ try {
     Import-Module (Join-Path $PSScriptRoot "modules\Onboardify.Validation.psm1") -Force
     Import-Module (Join-Path $PSScriptRoot "modules\Onboardify.Logging.psm1") -Force
 
-    # Kontrollerar att funktionerna som huvudscriptet behöver finns
+    # Kontrollerar att huvudscriptets grundfunktioner finns efter att modulerna har importerats.
+    # Om en funktion saknas stoppas scriptet direkt.
     $requiredFunctions = @(
         "Import-OnboardifyUserData",
         "Test-OnboardifyUserData",
@@ -34,6 +35,12 @@ try {
     # Startar onboarding-flödet
     Write-OnboardifyLog "Startar onboarding-script..."
     Write-OnboardifyLog "Datafil: $DataPath"
+
+    # Kontrollerar att datafilen finns innan vi försöker läsa in den.
+    # Detta gör felmeddelandet tydligare om fel sökväg skickas in.
+    if (-not (Test-Path $DataPath)) {
+        throw "Datafilen hittades inte: $DataPath"
+    }
 
     # Läser in användare från datafilen
     $users = @(Import-OnboardifyUserData -Path $DataPath)
