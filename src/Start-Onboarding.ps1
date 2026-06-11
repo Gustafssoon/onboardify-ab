@@ -74,12 +74,6 @@ try {
         # AD-modulen ansvarar för användarens attribut och gruppmedlemskap.
         New-OnboardifyADUser -User $user
 
-        # TODO: Koppla till OU-funktion när den finns
-        # Set-OnboardifyUserOU -User $user
-
-        # TODO: Koppla till gruppfunktion när den finns
-        # Add-OnboardifyUserGroups -User $user
-
         # Skapar hemkatalog för användaren.
         # Funktionen tar emot användarnamnet, därför skickas $user.username.
         New-OnboardifyHomeFolder -UserName $user.username
