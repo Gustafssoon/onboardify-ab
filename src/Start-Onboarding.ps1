@@ -12,26 +12,25 @@ $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
 
-# Importerar projektets moduler
-Import-Module "$PSScriptRoot\modules\Onboardify.Import.psm1" -Force
-Import-Module "$PSScriptRoot\modules\Onboardify.Validation.psm1" -Force
-Import-Module "$PSScriptRoot\modules\Onboardify.Logging.psm1" -Force
-
-# Kontrollerar att funktionerna som huvudscriptet behöver finns
-# Funktionerna byggs i separata issues
-$requiredFunctions = @(
-    "Import-OnboardifyUserData",
-    "Test-OnboardifyUserData",
-    "Write-OnboardifyLog"
-)
-
-foreach ($functionName in $requiredFunctions) {
-    if (-not (Get-Command $functionName -ErrorAction SilentlyContinue)) {
-        throw "Funktionen $functionName saknas. Kontrollera att rätt modul är klar och importerad."
-    }
-}
-
 try {
+    # Importerar projektets moduler
+    Import-Module (Join-Path $PSScriptRoot "modules\Onboardify.Import.psm1") -Force
+    Import-Module (Join-Path $PSScriptRoot "modules\Onboardify.Validation.psm1") -Force
+    Import-Module (Join-Path $PSScriptRoot "modules\Onboardify.Logging.psm1") -Force
+
+    # Kontrollerar att funktionerna som huvudscriptet behöver finns
+    $requiredFunctions = @(
+        "Import-OnboardifyUserData",
+        "Test-OnboardifyUserData",
+        "Write-OnboardifyLog"
+    )
+
+    foreach ($functionName in $requiredFunctions) {
+        if (-not (Get-Command $functionName -ErrorAction SilentlyContinue)) {
+            throw "Funktionen $functionName saknas. Kontrollera att rätt modul är klar och importerad."
+        }
+    }
+
     # Startar onboarding-flödet
     Write-OnboardifyLog "Startar onboarding-script..."
     Write-OnboardifyLog "Datafil: $DataPath"
