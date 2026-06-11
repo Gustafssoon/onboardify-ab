@@ -70,8 +70,9 @@ try {
     foreach ($user in $users) {
         Write-OnboardifyLog "Startar onboarding för $($user.firstName) $($user.lastName)"
 
-        # TODO: Koppla till AD-modul när funktionen finns
-        # New-OnboardifyADUser -User $user
+        # Skapar AD-användaren med hjälp av AD-modulen.
+        # AD-modulen ansvarar för användarens attribut och gruppmedlemskap.
+        New-OnboardifyADUser -User $user
 
         # TODO: Koppla till OU-funktion när den finns
         # Set-OnboardifyUserOU -User $user
