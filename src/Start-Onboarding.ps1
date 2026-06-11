@@ -39,10 +39,11 @@ try {
     Write-OnboardifyLog "Startar onboarding-script..."
     Write-OnboardifyLog "Datafil: $DataPath"
 
-if ($DemoMode) {
-    #Lade till en if att om DemoMode är aktiverat skickas detta meddelande.
-    Write-OnboardifyLog "[DEMO] Demo-läge aktiverat inga ändringar sker i AD"
-}
+    if ($DemoMode) {
+        #Lade till en if att om DemoMode är aktiverat skickas detta meddelande.
+        Write-OnboardifyLog "[DEMO] Demo-läge aktiverat inga ändringar sker i AD"
+    }
+
     # Läser in användare från datafilen
     $users = @(Import-OnboardifyUserData -Path $DataPath)
 
@@ -58,39 +59,40 @@ if ($DemoMode) {
 
     # Kör huvudflödet för varje användare
     foreach ($user in $users) {
-        Write-OnboardifyLog "Startar onboarding för $($user.firstName) $($user.lastName)"
 
+        # DemoMode för varje användare
         if ($DemoMode) {
-            Write-OnboardifyLog "[DEMO] Skulle skapat en AD användare för $($user.firstname) $($user.lastname)"
-            Write-OnboardifyLog "[DEMO] Skulle placerat användaren i rätt OU (placeholder)"
-            Write-OnboardifyLog "[DEMO] Skulle placerat användaren i grupper (placeholder)"
-            Write-OnboardifyLog "[DEMO] Skulle skapat hemkatalogen"
+
+            Write-OnboardifyLog "[DEMO] Startar onboarding för $($user.firstName) $($user.lastName)"
+
+            $username = ($user.firstName.Substring(0, 1) + $user.lastName).ToLower()
+
+            Write-OnboardifyLog "[DEMO] Skulle skapa AD-användare för $username"
+            Write-OnboardifyLog "[DEMO] Skulle skapa hemkatalog för $username"
+
+            Write-OnboardifyLog "[DEMO] Onboarding klar för $($user.firstName) $($user.lastName)"
+
         }
         else {
-            #AD funktioner här.
+
+            Write-OnboardifyLog "Startar onboarding för $($user.firstName) $($user.lastName)"
+
+            $username = ($user.firstName.Substring(0, 1) + $user.lastName).ToLower()
+
+            New-OnboardifyADUser -User $user
+            New-OnboardifyHomeFolder -UserName $username
+
+            Write-OnboardifyLog "Onboarding-flöde klart för $($user.firstName) $($user.lastName)"
         }
-
-        # TODO: Koppla till AD-modul när funktionen finns
-        # New-OnboardifyADUser -User $user
-
-        # TODO: Koppla till OU-funktion när den finns
-        # Set-OnboardifyUserOU -User $user
-
-        # TODO: Koppla till gruppfunktion när den finns
-        # Add-OnboardifyUserGroups -User $user
-
-        # TODO: Koppla till hemkatalogfunktion när den finns
-        # New-OnboardifyHomeFolder -User $user
-
-        Write-OnboardifyLog "Onboarding-flöde klart för $($user.firstName) $($user.lastName)"
     }
 
     if ($DemoMode) {
         #Avslutingen av logg för demokörning.
         Write-OnboardifyLog "[DEMO] Onboarding-script klart."
     }
-    
+
     Write-OnboardifyLog "Onboarding-script klart."
+
 }
 catch {
     Write-Host "Fel i onboarding-scriptet: $($_.Exception.Message)" -ForegroundColor Red
