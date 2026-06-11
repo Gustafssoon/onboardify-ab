@@ -88,6 +88,15 @@ try {
     Write-OnboardifyLog "Onboarding-script klart."
 }
 catch {
-    Write-Host "Fel i onboarding-scriptet: $($_.Exception.Message)" -ForegroundColor Red
+    # Sparar felmeddelandet så det kan visas och loggas på samma sätt.
+    $errorMessage = "Fel i onboarding-scriptet: $($_.Exception.Message)"
+
+    # Försöker logga felet om loggfunktionen har hunnit laddas.
+    # Om felet sker innan loggmodulen är importerad visas felet ändå i terminalen.
+    if (Get-Command Write-OnboardifyLog -ErrorAction SilentlyContinue) {
+        Write-OnboardifyLog $errorMessage "FEL"
+    }
+
+    Write-Host $errorMessage -ForegroundColor Red
     exit 1
 }
