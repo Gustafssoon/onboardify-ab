@@ -49,6 +49,179 @@ function Convert-ToAscii {
     return $cleanText
 }
 
+# Skapar nästa lediga SamAccountName.
+# Format: tre första bokstäverna i förnamn + första bokstaven i efternamn + löpnummer.
+function Get-NextSamAccountName {
+    [CmdletBinding()]
+    param(
+        # Förnamn från användardatan.
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string]$FirstName,
+
+        # Efternamn från användardatan.
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string]$LastName
+    )
+
+    # Kontrollerar att AD-modulen finns.
+    if (-not (Get-Command Get-ADUser -ErrorAction SilentlyContinue)) {
+        throw "Active Directory-modulen är inte installerad."
+    }
+
+    # Rensar förnamn och efternamn för AD-användarnamn.
+    $firstNameClean = Convert-ToAscii -Text $FirstName
+    $lastNameClean  = Convert-ToAscii -Text $LastName
+
+    # Hämtar max tre första tecken från förnamnet.
+    $firstPart = if ($firstNameClean.Length -ge 3) {
+        $firstNameClean.Substring(0, 3)
+    }
+    else {
+        $firstNameClean
+    }
+
+    # Hämtar första tecknet från efternamnet.
+    $lastPart = $lastNameClean.Substring(0, 1)
+
+    # Bygger prefixet, till exempel gaba eller asaa.
+    $prefix = ($firstPart + $lastPart).ToLower()
+
+    # Stoppar om prefixet inte gick att skapa.
+    if ([string]::IsNullOrWhiteSpace($prefix)) {
+        throw "Kunde inte skapa prefix för SamAccountName."
+    }
+
+    # Hämtar befintliga användare som börjar med samma prefix.
+    $existingUsers = Get-ADUser `
+        -Filter "SamAccountName -like '$prefix*'" `
+        -Properties SamAccountName `
+        -ErrorAction Stop
+
+    # Första användaren ska börja på 100.
+    $highestNumber = 99
+
+    # Skyddar prefixet innan regex används.
+    $escapedPrefix = [regex]::Escape($prefix)
+
+    # Letar efter högsta befintliga nummer.
+    foreach ($existingUser in $existingUsers) {
+        if ($existingUser.SamAccountName -match "^$escapedPrefix(\d+)$") {
+            $number = [int]$matches[1]
+
+            if ($number -gt $highestNumber) {
+                $highestNumber = $number
+            }
+        }
+    }
+
+    # Returnerar nästa lediga användarnamn.
+    return "$prefix$($highestNumber + 1)"
+}
+
+# Hämtar vilken e-postdomän som ska användas.
+function Get-OnboardifyEmailDomain {
+    [CmdletBinding()]
+    param(
+        # Hela användarobjektet från JSON/CSV.
+        [Parameter(Mandatory = $true)]
+        [PSObject]$User,
+
+        # Standarddomän om inget annat finns.
+        [string]$DefaultDomain = "exempel.com"
+    )
+
+    # Använder emailDomain om det finns.
+    if ($User.PSObject.Properties.Name -contains "emailDomain") {
+        if (-not [string]::IsNullOrWhiteSpace($User.emailDomain)) {
+            return $User.emailDomain.Trim().TrimStart("@").ToLower()
+        }
+    }
+
+    # Hämtar domänen från email om email redan finns.
+    if ($User.PSObject.Properties.Name -contains "email") {
+        if (-not [string]::IsNullOrWhiteSpace($User.email) -and $User.email -match "@(.+)$") {
+            return $matches[1].Trim().ToLower()
+        }
+    }
+
+    # Använder standarddomän om inget annat finns.
+    return $DefaultDomain.Trim().TrimStart("@").ToLower()
+}
+
+# Skapar nästa lediga e-postadress och UPN.
+# Format: förnamn.efternamn@domän.
+function Get-NextEmailAddress {
+    [CmdletBinding()]
+    param(
+        # Förnamn från användardatan.
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string]$FirstName,
+
+        # Efternamn från användardatan.
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string]$LastName,
+
+        # Domän som ska användas efter @.
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string]$Domain
+    )
+
+    # Kontrollerar att AD-modulen finns.
+    if (-not (Get-Command Get-ADUser -ErrorAction SilentlyContinue)) {
+        throw "Active Directory-modulen är inte installerad."
+    }
+
+    # Rensar domänen från eventuellt @.
+    $domainClean = $Domain.Trim().TrimStart("@").ToLower()
+
+    # Enkel kontroll av domänformat.
+    if ($domainClean -notmatch '^[a-z0-9.-]+$') {
+        throw "Ogiltig e-postdomän: $domainClean"
+    }
+
+    # Rensar namn för e-post.
+    # Exempel: Gabriel Andersson Svensson blir gabriel.andersson.svensson.
+    $firstNameClean = Convert-ToEmailNamePart -Text $FirstName
+    $lastNameClean  = Convert-ToEmailNamePart -Text $LastName
+
+    # Bygger lokal del av e-postadressen.
+    $localBase = "$firstNameClean.$lastNameClean"
+
+    # Tar bort dubbla punkter och punkt i början/slutet.
+    $localBase = ($localBase -replace '\.+', '.').Trim('.')
+
+    # Testar först utan siffra, sedan med löpnummer.
+    for ($counter = 0; $counter -le 999; $counter++) {
+        $localPart = if ($counter -eq 0) {
+            $localBase
+        }
+        else {
+            "$localBase$counter"
+        }
+
+        # Skapar kandidat för e-post och UPN.
+        $candidate = "$localPart@$domainClean"
+
+        # Kontrollerar om adressen redan används.
+        $existingUser = Get-ADUser `
+            -Filter "UserPrincipalName -eq '$candidate' -or EmailAddress -eq '$candidate'" `
+            -Properties UserPrincipalName, EmailAddress `
+            -ErrorAction Stop
+
+        # Returnerar adressen om den är ledig.
+        if (-not $existingUser) {
+            return $candidate
+        }
+    }
+
+    throw "Kunde inte skapa en ledig e-postadress för $FirstName $LastName."
+}
+
 # Rensar text så att den kan användas i e-postadresser.
 # Mellanslag och bindestreck görs om till punkter.
 function Convert-ToEmailNamePart {
