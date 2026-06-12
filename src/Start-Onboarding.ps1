@@ -35,10 +35,18 @@ try {
         "Test-OnboardifyUserData"
     )
 
-    # AD- och mappmoduler behövs bara vid skarp körning.
+    # AD-modulen behövs både i DemoMode och vid skarp körning.
+    # I DemoMode används den för att räkna ut realistiska användarnamn.
+    Import-Module (Join-Path $PSScriptRoot "modules\Onboardify.AD.psm1") -Force
+
+    $requiredFunctions += @(
+        "Get-NextSamAccountName",
+        "Test-OnboardifyExistingPerson"
+    )
+
+    # Mappmodulen behövs bara vid skarp körning.
     # I DemoMode ska scriptet inte skapa användare eller mappar.
     if (-not $DemoMode) {
-        Import-Module (Join-Path $PSScriptRoot "modules\Onboardify.AD.psm1") -Force
         Import-Module (Join-Path $PSScriptRoot "modules\Onboardify.Folders.psm1") -Force
 
         $requiredFunctions += @(
@@ -116,9 +124,21 @@ try {
     foreach ($user in $users) {
         Write-OnboardifyLog "Startar onboarding för $($user.firstName) $($user.lastName)"
 
-        # Skapar användarnamn på samma sätt som AD-modulen.
-        # Detta gör att AD-konto och hemkatalog får samma namn.
-        $username = ($user.firstName.Substring(0, 1) + $user.lastName).ToLower()
+        # Räknar ut användarnamn med samma logik som AD-modulen.
+        # Om användaren redan finns används befintligt användarnamn.
+        $existingPerson = Test-OnboardifyExistingPerson `
+            -FirstName $user.firstName `
+            -LastName $user.lastName `
+            -OrganizationUnit $user.organizationUnit
+
+        if ($existingPerson) {
+            $username = $existingPerson.SamAccountName
+        }
+        else {
+            $username = Get-NextSamAccountName `
+                -FirstName $user.firstName `
+                -LastName $user.lastName
+}
 
         if ($DemoMode) {
             # I DemoMode loggar vi bara vad scriptet skulle ha gjort.
