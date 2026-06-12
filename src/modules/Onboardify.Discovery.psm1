@@ -14,7 +14,22 @@ function Export-OnboardifyADStructure {
         [string]$OutputPath
     )
 
-    Write-Host "AD-skanner är inte implementerad ännu."
+    # Om ingen sökväg anges sparas filen i config-mappen.
+    if ([string]::IsNullOrWhiteSpace($OutputPath)) {
+        $RepoRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..")
+        $OutputPath = Join-Path $RepoRoot "config\ad-structure.generated.json"
+    }
+
+    # Skapar output-mappen om den saknas.
+    $OutputFolder = Split-Path $OutputPath -Parent
+
+    if (!(Test-Path $OutputFolder)) {
+        New-Item -Path $OutputFolder -ItemType Directory -Force | Out-Null
+    }
+
+    Write-Host "AD-struktur kommer sparas till: $OutputPath"
+
+    return $OutputPath
 }
 
 Export-ModuleMember -Function Export-OnboardifyADStructure
