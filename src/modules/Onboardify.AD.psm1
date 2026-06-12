@@ -22,7 +22,7 @@ function Convert-ToAscii {
     foreach ($key in $replacements.Keys) {
         $Text = $Text.Replace($key, $replacements[$key])
     }
-
+$Text = $Text -replace '[^a-z0-9]', ''
     return $Text
 }
 function Get-NextSamAccountName {
@@ -31,13 +31,28 @@ function Get-NextSamAccountName {
         [string]$LastName
     )
 
+    if (-not (Get-Command Get-ADUser -ErrorAction SilentlyContinue)) {
+        throw "Active Directory-modulen är inte installerad."
+    }
+
     $firstNameClean = Convert-ToAscii $FirstName
     $lastNameClean = Convert-ToAscii $LastName
 
-    $prefix = (
-        $firstNameClean.Substring(0,3) +
+    $firstPart = if ($firstNameClean.Length -ge 3) {
+        $firstNameClean.Substring(0,3)
+    }
+    else {
+        $firstNameClean
+    }
+
+    $lastPart = if ($lastNameClean.Length -ge 1) {
         $lastNameClean.Substring(0,1)
-    ).ToLower()
+    }
+    else {
+        ""
+    }
+
+    $prefix = ($firstPart + $lastPart).ToLower()
 
     $existingUsers = Get-ADUser `
         -Filter "SamAccountName -like '$prefix*'" `
@@ -46,9 +61,7 @@ function Get-NextSamAccountName {
     $highestNumber = 99
 
     foreach ($existingUser in $existingUsers) {
-
         if ($existingUser.SamAccountName -match "^$prefix(\d+)$") {
-
             $number = [int]$matches[1]
 
             if ($number -gt $highestNumber) {
@@ -101,9 +114,8 @@ function New-OnboardifyADUser {
 
         Write-Host "Användaren $username har skapats i AD med lösenord: $password" -ForegroundColor Green
     }
-    catch {
-        Write-Host "Fel vid skapande av användaren $username: $($_.Exception.Message)" -ForegroundColor Red
+       catch {
+        Write-Host "Fel vid skapande av användaren ${username}: $($_.Exception.Message)" -ForegroundColor Red
         throw
     }
 }
-        
