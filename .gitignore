@@ -17,3 +17,6 @@ Thumbs.db
 
 # VS Code lokal workspace
 .vscode/
+
+# Genererade filer
+config/ad-structure.generated.json

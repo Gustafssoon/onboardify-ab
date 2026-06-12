@@ -39,6 +39,14 @@ Projektet använder:
 
 ---
 
+## AD-skanner
+
+Projektet har en enkel AD-skanner som kan läsa av OU-strukturen i Active Directory och spara resultatet till en JSON-fil.
+
+Syftet är att Onboardify inte ska behöva hårdkoda kundens OU-struktur. Funktionen läser endast information från AD och gör inga ändringar.
+
+---
+
 ## Roller i gruppen
 
 | Roll | Namn | Ansvar |

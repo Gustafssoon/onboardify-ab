@@ -13,6 +13,7 @@ Write-Host "Startar tester för Onboardify..." -ForegroundColor Cyan
 $ImportModulePath = ".\src\modules\Onboardify.Import.psm1"
 $ValidationModulePath = ".\src\modules\Onboardify.Validation.psm1"
 $LoggingModulePath = ".\src\modules\Onboardify.Logging.psm1"
+$DiscoveryModulePath = ".\src\modules\Onboardify.Discovery.psm1"
 $TestDataPath = ".\config\customer.sample.json"
 
 try {
@@ -31,6 +32,10 @@ try {
         throw "Loggningsmodulen saknas."
     }
 
+    if (-not (Test-Path $DiscoveryModulePath)) {
+        throw "Discovery-modulen saknas."
+    }
+
     Write-Host "OK - Alla modulfiler finns" -ForegroundColor Green
 
 
@@ -40,6 +45,7 @@ try {
     Import-Module $ImportModulePath -Force
     Import-Module $ValidationModulePath -Force
     Import-Module $LoggingModulePath -Force
+    Import-Module $DiscoveryModulePath -Force
 
     Write-Host "OK - Moduler importerades" -ForegroundColor Green
 
@@ -65,6 +71,10 @@ try {
 
     if (-not (Get-Command Get-OnboardifyLogFile -ErrorAction SilentlyContinue)) {
         throw "Funktionen Get-OnboardifyLogFile saknas."
+    }
+
+    if (-not (Get-Command Export-OnboardifyADStructure -ErrorAction SilentlyContinue)) {
+        throw "Funktionen Export-OnboardifyADStructure saknas."
     }
 
     Write-Host "OK - Viktiga funktioner finns" -ForegroundColor Green

@@ -1,25 +1,19 @@
-﻿# Ser till att svenska tecken som å, ä och ö visas rätt i terminalen
+# Ser till att svenska tecken som å, ä och ö visas rätt i terminalen
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
 
 # Funktion som skapar en hemkatalog från användardata
 function New-OnboardifyHomeFolder {
-
     param(
-
         # Sökvägen till hemkatalogen hämtas från homeFolder i JSON-filen
         [Parameter(Mandatory)]
         [string]$HomeFolder
     )
 
     try {
-
-        # Kontrollera om hemkatalogen redan finns
+        # Kontrollerar om hemkatalogen redan finns
         if (Test-Path $HomeFolder) {
-
             Write-Host "Hemkatalogen finns redan: $HomeFolder" -ForegroundColor Yellow
-            Write-Host "Resultat loggat: mappen fanns redan"
-
             return
         }
 
@@ -30,18 +24,13 @@ function New-OnboardifyHomeFolder {
             -ErrorAction Stop | Out-Null
 
         Write-Host "Hemkatalog skapad: $HomeFolder" -ForegroundColor Green
-
-        # Logga resultatet
-        Write-Host "Resultat loggat: hemkatalog skapad"
     }
-
     catch {
-
         # Felhantering om mappen inte kan skapas
         Write-Host "Fel vid skapande av hemkatalog: $HomeFolder" -ForegroundColor Red
         Write-Host $_.Exception.Message -ForegroundColor Red
-
-        # Logga fel
-        Write-Host "Fel loggat"
+        throw
     }
 }
+
+Export-ModuleMember -Function New-OnboardifyHomeFolder

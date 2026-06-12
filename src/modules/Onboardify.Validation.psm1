@@ -1,6 +1,6 @@
 ﻿# Onboardify.Validation.psm1
 
-# Ser till att svenska tecken som å, ä och ö visas rätt i terminalen
+# Ser till att svenska tecken som å, ä och ö visas rätt i terminalen.
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
 
@@ -15,17 +15,17 @@ function Test-OnboardifyUserData {
     )
 
     # Definierar de fält som måste finnas för varje användare.
+    # De kan skapas automatiskt i AD-modulen.
+    # Det gör att HR eller testdata inte behöver fylla i tekniska fält manuellt.
     $requiredFields = @(
         "firstName",
         "lastName",
-        "username",
         "title",
         "organizationUnit",
         "department",
         "groups",
         "license",
-        "homeFolder",
-        "email"
+        "homeFolder"
     )
 
     <#
@@ -50,7 +50,32 @@ function Test-OnboardifyUserData {
             # Hämtar värdet från fältet som kontrolleras.
             $value = $user.$field
 
-            # Kontrollerar att fältet inte är tomt.
+            # groups är en lista och behöver därför kontrolleras lite annorlunda än vanliga textfält.
+            if ($field -eq "groups") {
+
+                # Kontrollerar att groups inte saknas helt.
+                if ($null -eq $value) {
+                    Write-Host "Användardata har inga grupper angivna." -ForegroundColor Red
+                    return $false
+                }
+
+                # Gör om groups till en lista så att både en grupp och flera grupper kan hanteras.
+                $groups = @($value)
+
+                # Letar efter tomma eller ogiltiga gruppnamn.
+                $invalidGroups = @($groups | Where-Object { [string]::IsNullOrWhiteSpace($_.ToString()) })
+
+                # Kontrollerar att minst en grupp finns och att gruppnamnen inte är tomma.
+                if ($groups.Count -eq 0 -or $invalidGroups.Count -gt 0) {
+                    Write-Host "Användardata har tomt eller ogiltigt gruppfält." -ForegroundColor Red
+                    return $false
+                }
+
+                # Hoppar vidare till nästa fält när grupperna är kontrollerade.
+                continue
+            }
+
+            # Kontrollerar att vanliga textfält inte är tomma.
             if ($null -eq $value -or [string]::IsNullOrWhiteSpace($value.ToString())) {
                 Write-Host "Användardata har tomt fält: $field" -ForegroundColor Red
                 return $false
