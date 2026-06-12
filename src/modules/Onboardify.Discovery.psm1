@@ -41,7 +41,21 @@ function Export-OnboardifyADStructure {
             @{ Name = "name"; Expression = { $_.Name } },
             @{ Name = "distinguishedName"; Expression = { $_.DistinguishedName } }
 
-    return $OrganizationalUnits
+    # Skapar ett tydligt JSON-objekt.
+    $AdStructure = [PSCustomObject]@{
+        generatedAt         = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+        sourceDomain        = $env:USERDNSDOMAIN
+        organizationalUnits = @($OrganizationalUnits)
+    }
+
+    # Sparar resultatet till JSON.
+    $AdStructure |
+        ConvertTo-Json -Depth 5 |
+        Set-Content -Path $OutputPath -Encoding UTF8 -ErrorAction Stop
+
+    Write-Host "OU-struktur sparad till: $OutputPath"
+
+    return $AdStructure
 }
 
 Export-ModuleMember -Function Export-OnboardifyADStructure
