@@ -36,8 +36,8 @@ Genom att automatisera skapandet av användare i Active Directory kan organisati
 | #46   | Dokumentera daily standups – Sprint 2                   | Ali          | To Do  |
 | #49   | Dokumentera sprint review – Sprint 2                    | Ali          | To Do  |
 | #73   | Dokumentera sprintplan – Sprint 2                       | Ali          | To Do  |
-| #36   | Skapa huvudscript som kör onboarding-flödet (Spike)     | Ej tilldelad | To Do  |
-| #37   | Koppla ihop PowerShell-moduler med huvudscript (Spike)  | Ej tilldelad | To Do  |
+| #36   | Skapa huvudscript som kör onboarding-flödet (Spike)     | Gabriel      | To Do  |
+| #37   | Koppla ihop PowerShell-moduler med huvudscript (Spike)  | Gabriel      | To Do  |
 
 ---
 
