@@ -65,8 +65,11 @@ function Test-OnboardifyUserData {
                 # Gör om groups till en lista så att både en grupp och flera grupper kan hanteras.
                 $groups = @($value)
 
+                # Letar efter tomma eller ogiltiga gruppnamn.
+                $invalidGroups = @($groups | Where-Object { [string]::IsNullOrWhiteSpace($_.ToString()) })
+
                 # Kontrollerar att minst en grupp finns och att gruppnamnen inte är tomma.
-                if ($groups.Count -eq 0 -or ($groups | Where-Object { [string]::IsNullOrWhiteSpace($_.ToString()) }).Count -gt 0) {
+                if ($groups.Count -eq 0 -or $invalidGroups.Count -gt 0) {
                     Write-Host "Användardata har tomt eller ogiltigt gruppfält." -ForegroundColor Red
                     return $false
                 }
