@@ -15,10 +15,7 @@ function Test-OnboardifyUserData {
     )
 
     # Definierar de fält som måste finnas för varje användare.
-    #
-    # username, email och userPrincipalName krävs inte längre i indata.
     # De kan skapas automatiskt i AD-modulen.
-    #
     # Det gör att HR eller testdata inte behöver fylla i tekniska fält manuellt.
     $requiredFields = @(
         "firstName",

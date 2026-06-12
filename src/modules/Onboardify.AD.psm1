@@ -2,6 +2,106 @@
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
 
+# Rensar text så att den kan användas i SamAccountName.
+# Används för korta AD-användarnamn utan punkter.
+function Convert-ToAscii {
+    [CmdletBinding()]
+    param(
+        # Texten som ska rensas.
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string]$Text
+    )
+
+    # Stoppar om texten är tom.
+    if ([string]::IsNullOrWhiteSpace($Text)) {
+        throw "Texten som ska rensas får inte vara tom."
+    }
+
+    # Gör texten till små bokstäver.
+    $cleanText = $Text.ToLower().Trim()
+
+    # Byter svenska tecken och vanliga specialtecken.
+    $replacements = @{
+        'å' = 'a'
+        'ä' = 'a'
+        'ö' = 'o'
+        'é' = 'e'
+        'è' = 'e'
+        'ê' = 'e'
+        'ü' = 'u'
+        'û' = 'u'
+    }
+
+    # Ersätter tecknen ovan.
+    foreach ($key in $replacements.Keys) {
+        $cleanText = $cleanText.Replace($key, $replacements[$key])
+    }
+
+    # Tar bort allt som inte är bokstäver eller siffror.
+    $cleanText = $cleanText -replace '[^a-z0-9]', ''
+
+    # Stoppar om allt försvann vid rensning.
+    if ([string]::IsNullOrWhiteSpace($cleanText)) {
+        throw "Texten blev tom efter rensning av specialtecken."
+    }
+
+    return $cleanText
+}
+
+# Rensar text så att den kan användas i e-postadresser.
+# Mellanslag och bindestreck görs om till punkter.
+function Convert-ToEmailNamePart {
+    [CmdletBinding()]
+    param(
+        # Texten som ska rensas för e-post.
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string]$Text
+    )
+
+    # Stoppar om texten är tom.
+    if ([string]::IsNullOrWhiteSpace($Text)) {
+        throw "Texten som ska användas i e-post får inte vara tom."
+    }
+
+    # Gör texten till små bokstäver.
+    $cleanText = $Text.ToLower().Trim()
+
+    # Byter svenska tecken och vanliga specialtecken.
+    $replacements = @{
+        'å' = 'a'
+        'ä' = 'a'
+        'ö' = 'o'
+        'é' = 'e'
+        'è' = 'e'
+        'ê' = 'e'
+        'ü' = 'u'
+        'û' = 'u'
+    }
+
+    # Ersätter tecknen ovan.
+    foreach ($key in $replacements.Keys) {
+        $cleanText = $cleanText.Replace($key, $replacements[$key])
+    }
+
+    # Gör om specialtecken, mellanslag och bindestreck till punkt.
+    $cleanText = $cleanText -replace '[^a-z0-9]+', '.'
+
+    # Tar bort dubbla punkter.
+    $cleanText = $cleanText -replace '\.+', '.'
+
+    # Tar bort punkt i början och slutet.
+    $cleanText = $cleanText.Trim('.')
+
+    # Stoppar om allt försvann vid rensning.
+    if ([string]::IsNullOrWhiteSpace($cleanText)) {
+        throw "Texten blev tom efter rensning för e-post."
+    }
+
+    return $cleanText
+}
+
 # Rensar text så att den kan användas i e-postadresser.
 function Convert-ToEmailNamePart {
     [CmdletBinding()]
