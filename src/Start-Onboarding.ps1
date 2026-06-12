@@ -140,7 +140,7 @@ try {
                 -LastName $user.lastName
 }
 
-        if ($DemoMode) {
+        if ($DemoMode) {New-OnboardifyHomeFolder -UserName $username
             # I DemoMode loggar vi bara vad scriptet skulle ha gjort.
             Write-OnboardifyLog "[DEMO] Skulle skapa AD-användare för: $username"
             Write-OnboardifyLog "[DEMO] Skulle placera användaren i OU: $($user.organizationUnit)"
@@ -154,12 +154,11 @@ try {
         }
         else {
             # Skapar AD-användaren med hjälp av AD-modulen.
-            # AD-modulen ansvarar för användarens attribut, OU-placering och gruppmedlemskap.
-            New-OnboardifyADUser -User $user
+            # Funktionen returnerar det användarnamn som faktiskt skapades eller redan finns.
+            $username = New-OnboardifyADUser -User $user
 
-            # Skapar hemkatalog för användaren.
-            # Samma användarnamn används här som vid skapandet av AD-kontot.
-            New-OnboardifyHomeFolder -UserName $username
+            # Skapar hemkatalog med samma användarnamn som AD-kontot.
+            New-OnboardifyHomeFolder -HomeFolder $user.homeFolder
 
             Write-OnboardifyLog "Onboarding-flöde klart för $($user.firstName) $($user.lastName)"
         }
