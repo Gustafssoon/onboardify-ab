@@ -15,13 +15,6 @@ function Export-OnboardifyADStructure {
     )
 
     try {
-        # Importerar loggmodulen om den finns.
-        $LoggingModulePath = Join-Path $PSScriptRoot "Onboardify.Logging.psm1"
-
-        if (Test-Path $LoggingModulePath) {
-            Import-Module $LoggingModulePath -Force
-        }
-
         # Om ingen sökväg anges sparas filen i config-mappen.
         if ([string]::IsNullOrWhiteSpace($OutputPath)) {
             $RepoRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..")
@@ -41,10 +34,6 @@ function Export-OnboardifyADStructure {
 
         # ActiveDirectory-modulen krävs för Get-ADOrganizationalUnit.
         Import-Module ActiveDirectory -ErrorAction Stop
-
-        if (Get-Command Write-OnboardifyLog -ErrorAction SilentlyContinue) {
-            Write-OnboardifyLog "Startar skanning av OU-struktur i Active Directory."
-        }
 
         # Hämtar alla OU:er från AD.
         # Detta är endast läsning och gör inga ändringar i AD.
@@ -69,20 +58,12 @@ function Export-OnboardifyADStructure {
             ConvertTo-Json -Depth 5 |
             Set-Content -Path $OutputPath -Encoding UTF8 -ErrorAction Stop
 
-        if (Get-Command Write-OnboardifyLog -ErrorAction SilentlyContinue) {
-            Write-OnboardifyLog "OU-struktur sparad till: $OutputPath" "OK"
-        }
-        else {
-            Write-Host "OU-struktur sparad till: $OutputPath"
-        }
+        Write-Host "OU-struktur sparad till: $OutputPath" -ForegroundColor Green
 
         return $AdStructure
     }
     catch {
-        if (Get-Command Write-OnboardifyLog -ErrorAction SilentlyContinue) {
-            Write-OnboardifyLog "Fel vid skanning av OU-struktur: $($_.Exception.Message)" "FEL"
-        }
-
+        Write-Host "Fel vid skanning av OU-struktur: $($_.Exception.Message)" -ForegroundColor Red
         throw
     }
 }
