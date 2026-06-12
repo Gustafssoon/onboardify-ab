@@ -56,9 +56,18 @@ function Test-OnboardifyUserData {
             # groups är en lista och behöver därför kontrolleras lite annorlunda än vanliga textfält.
             if ($field -eq "groups") {
 
-                # Kontrollerar att minst en grupp finns angiven.
-                if ($null -eq $value -or @($value).Count -eq 0) {
+                # Kontrollerar att groups inte saknas helt.
+                if ($null -eq $value) {
                     Write-Host "Användardata har inga grupper angivna." -ForegroundColor Red
+                    return $false
+                }
+
+                # Gör om groups till en lista så att både en grupp och flera grupper kan hanteras.
+                $groups = @($value)
+
+                # Kontrollerar att minst en grupp finns och att gruppnamnen inte är tomma.
+                if ($groups.Count -eq 0 -or ($groups | Where-Object { [string]::IsNullOrWhiteSpace($_.ToString()) }).Count -gt 0) {
+                    Write-Host "Användardata har tomt eller ogiltigt gruppfält." -ForegroundColor Red
                     return $false
                 }
 
