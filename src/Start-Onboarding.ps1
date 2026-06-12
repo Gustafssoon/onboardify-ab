@@ -1,9 +1,13 @@
 ﻿# Tar emot sökvägen till datafilen som parameter när scriptet körs.
-# DemoMode gör att scriptet bara visar vad som skulle göras, utan att ändra i AD eller skapa mappar.
+# DemoMode gör att scriptet bara visar vad som skulle göras, utan att skapa användare eller mappar.
 param(
     [Parameter(Mandatory = $true)]
     [ValidateNotNullOrEmpty()]
     [string]$DataPath,
+
+    # Sökväg till den genererade AD-strukturen.
+    # Om inget anges används config/ad-structure.generated.json.
+    [string]$StructurePath,
 
     [switch]$DemoMode
 )
@@ -17,20 +21,22 @@ $OutputEncoding = [System.Text.Encoding]::UTF8
 
 try {
     # Importerar projektets grundmoduler.
-    # Dessa behövs för att läsa in data, validera data och skriva loggar.
+    # Dessa behövs för att skanna AD, läsa in data, validera data och skriva loggar.
+    Import-Module (Join-Path $PSScriptRoot "modules\Onboardify.Logging.psm1") -Force
+    Import-Module (Join-Path $PSScriptRoot "modules\Onboardify.Discovery.psm1") -Force
     Import-Module (Join-Path $PSScriptRoot "modules\Onboardify.Import.psm1") -Force
     Import-Module (Join-Path $PSScriptRoot "modules\Onboardify.Validation.psm1") -Force
-    Import-Module (Join-Path $PSScriptRoot "modules\Onboardify.Logging.psm1") -Force
 
-    # Funktioner som alltid behövs, även i DemoMode.
+    # Funktioner som alltid behövs.
     $requiredFunctions = @(
+        "Write-OnboardifyLog",
+        "Export-OnboardifyADStructure",
         "Import-OnboardifyUserData",
-        "Test-OnboardifyUserData",
-        "Write-OnboardifyLog"
+        "Test-OnboardifyUserData"
     )
 
     # AD- och mappmoduler behövs bara vid skarp körning.
-    # I DemoMode ska scriptet kunna testas utan att påverka AD eller filsystem.
+    # I DemoMode ska scriptet inte skapa användare eller mappar.
     if (-not $DemoMode) {
         Import-Module (Join-Path $PSScriptRoot "modules\Onboardify.AD.psm1") -Force
         Import-Module (Join-Path $PSScriptRoot "modules\Onboardify.Folders.psm1") -Force
@@ -54,7 +60,34 @@ try {
     Write-OnboardifyLog "Datafil: $DataPath"
 
     if ($DemoMode) {
-        Write-OnboardifyLog "[DEMO] Demo-läge aktiverat. Inga ändringar sker i AD eller filsystem."
+        Write-OnboardifyLog "[DEMO] Demo-läge aktiverat. Inga användare eller mappar skapas."
+    }
+
+    # Om ingen sökväg anges sparas/läses AD-strukturen från config-mappen.
+    if ([string]::IsNullOrWhiteSpace($StructurePath)) {
+        $RepoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
+        $StructurePath = Join-Path $RepoRoot "config\ad-structure.generated.json"
+    }
+
+    # Skannar AD-strukturen först.
+    # Detta skapar config/ad-structure.generated.json som sedan kan användas som underlag för HR-data.
+    Write-OnboardifyLog "Startar AD-skanner..."
+    Export-OnboardifyADStructure -OutputPath $StructurePath | Out-Null
+
+    # Läser in den genererade AD-strukturen.
+    # I nuläget används den som underlag och kvitto på aktuell AD-struktur.
+    # Nästa steg kan bli att validera HR-data mot denna fil.
+    if (-not (Test-Path $StructurePath)) {
+        throw "AD-strukturfilen skapades inte: $StructurePath"
+    }
+
+    $adStructure = Get-Content -Path $StructurePath -Raw | ConvertFrom-Json
+
+    Write-OnboardifyLog "AD-struktur har skannats och lästs in."
+    Write-OnboardifyLog "AD-strukturfil: $StructurePath"
+
+    if ($adStructure.organizationalUnits) {
+        Write-OnboardifyLog "Antal OU:er i AD-strukturen: $($adStructure.organizationalUnits.Count)"
     }
 
     # Kontrollerar att datafilen finns innan vi försöker läsa in den.
@@ -63,7 +96,7 @@ try {
         throw "Datafilen hittades inte: $DataPath"
     }
 
-    # Läser in användare från datafilen.
+    # Läser in användare från HR-datafilen.
     $users = @(Import-OnboardifyUserData -Path $DataPath)
 
     if ($null -eq $users -or $users.Count -eq 0) {
