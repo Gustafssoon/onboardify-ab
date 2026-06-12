@@ -1,7 +1,77 @@
 ﻿# Ser till att svenska tecken som å, ä och ö visas rätt i terminalen
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
+function Convert-ToAscii {
+    param(
+        [string]$Text
+    )
 
+    $Text = $Text.ToLower()
+
+    $replacements = @{
+        'å' = 'a'
+        'ä' = 'a'
+        'ö' = 'o'
+        'é' = 'e'
+        'è' = 'e'
+        'ê' = 'e'
+        'ü' = 'u'
+        'û' = 'u'
+    }
+
+    foreach ($key in $replacements.Keys) {
+        $Text = $Text.Replace($key, $replacements[$key])
+    }
+$Text = $Text -replace '[^a-z0-9]', ''
+    return $Text
+}
+function Get-NextSamAccountName {
+    param(
+        [string]$FirstName,
+        [string]$LastName
+    )
+
+    if (-not (Get-Command Get-ADUser -ErrorAction SilentlyContinue)) {
+        throw "Active Directory-modulen är inte installerad."
+    }
+
+    $firstNameClean = Convert-ToAscii $FirstName
+    $lastNameClean = Convert-ToAscii $LastName
+
+    $firstPart = if ($firstNameClean.Length -ge 3) {
+        $firstNameClean.Substring(0,3)
+    }
+    else {
+        $firstNameClean
+    }
+
+    $lastPart = if ($lastNameClean.Length -ge 1) {
+        $lastNameClean.Substring(0,1)
+    }
+    else {
+        ""
+    }
+
+    $prefix = ($firstPart + $lastPart).ToLower()
+
+    $existingUsers = Get-ADUser `
+        -Filter "SamAccountName -like '$prefix*'" `
+        -Properties SamAccountName
+
+    $highestNumber = 99
+
+    foreach ($existingUser in $existingUsers) {
+        if ($existingUser.SamAccountName -match "^$prefix(\d+)$") {
+            $number = [int]$matches[1]
+
+            if ($number -gt $highestNumber) {
+                $highestNumber = $number
+            }
+        }
+    }
+
+    return "$prefix$($highestNumber + 1)"
+}
 function New-OnboardifyADUser {
     [CmdletBinding()]
     param (
@@ -11,7 +81,9 @@ function New-OnboardifyADUser {
     )
 
     #Skapa användarnamn genom att kombinera förnamn och efternamn
-    $username = ($User.firstName.Substring(0, 1) + $User.lastName).ToLower()
+    $username = Get-NextSamAccountName `
+    -FirstName $User.firstName `
+    -LastName $User.lastName
 
     # Skapa en tabell med attribut som används för att skapa användaren i AD
     $userAttributes = @{
@@ -25,11 +97,6 @@ function New-OnboardifyADUser {
     }
 
     try {
-        #Kontrollera om användaren redan finns i AD
-        if (Get-ADUser -Filter { sAMAccountName -eq $username }) {
-            Write-Host "Användaren $username finns redan i AD." -ForegroundColor Yellow
-            return
-        }
         
         # Skapa randomiserat lösenord med 12 tecken och 2 icke-alfanumeriska tecken
         $password = [System.Web.Security.Membership]::GeneratePassword(12, 2)
@@ -47,9 +114,8 @@ function New-OnboardifyADUser {
 
         Write-Host "Användaren $username har skapats i AD med lösenord: $password" -ForegroundColor Green
     }
-    catch {
-        Write-Host "Fel vid skapande av användaren $username: $($_.Exception.Message)" -ForegroundColor Red
+       catch {
+        Write-Host "Fel vid skapande av användaren ${username}: $($_.Exception.Message)" -ForegroundColor Red
         throw
     }
 }
-        
