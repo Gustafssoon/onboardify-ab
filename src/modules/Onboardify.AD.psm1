@@ -536,23 +536,79 @@ function Test-OnboardifyExistingUser {
     return $existingUser
 }
 
+# Kontrollerar om användare redan finns via e-post eller UPN.
+function Test-OnboardifyExistingUser {
+    [CmdletBinding()]
+    param(
+        # E-postadress som ska kontrolleras.
+        [Parameter(Mandatory = $true)]
+        [string]$EmailAddress,
+
+        # UPN som ska kontrolleras.
+        [Parameter(Mandatory = $true)]
+        [string]$UserPrincipalName
+    )
+
+    # Söker efter befintlig användare med samma e-post eller UPN.
+    $existingUser = Get-ADUser `
+        -Filter "UserPrincipalName -eq '$UserPrincipalName' -or EmailAddress -eq '$EmailAddress'" `
+        -Properties UserPrincipalName, EmailAddress, SamAccountName `
+        -ErrorAction Stop
+
+    return $existingUser
+}
+
+# Kontrollerar om samma person redan finns i samma OU.
+# Används för att kunna köra samma datafil igen utan att skapa dubbletter.
+function Test-OnboardifyExistingPerson {
+    [CmdletBinding()]
+    param(
+        # Förnamn från användardatan.
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string]$FirstName,
+
+        # Efternamn från användardatan.
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string]$LastName,
+
+        # OU där användaren ska skapas.
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string]$OrganizationUnit
+    )
+
+    # Samma namn som används som Name/CN när AD-kontot skapas.
+    $displayName = "$FirstName $LastName"
+
+    # Söker efter samma namn i samma OU.
+    $existingUser = Get-ADUser `
+        -Filter "Name -eq '$displayName'" `
+        -SearchBase $OrganizationUnit `
+        -Properties SamAccountName, UserPrincipalName, EmailAddress `
+        -ErrorAction Stop
+
+    return $existingUser
+}
+
+# Skapar en ny AD-användare från importerad användardata.
 function New-OnboardifyADUser {
     [CmdletBinding()]
     param (
-        # Användarobjektet som kommer från importerad JSON/CSV-data.
+        # Användarobjekt från JSON/CSV.
         [Parameter(Mandatory = $true)]
         [ValidateNotNullOrEmpty()]
         [PSObject]$User
     )
 
-    # Sätts till null från början så catch-blocket kan skriva ett tydligt fel även om något går fel tidigt.
+    # Används i catch om något går fel tidigt.
     $username = $null
     $emailAddress = $null
     $userPrincipalName = $null
 
     try {
-        # Kontrollerar de viktigaste fälten innan AD-kommandon körs.
-        # Detta gör att vi får tydligare felmeddelanden om indata är fel.
+        # Kontrollerar obligatoriska fält.
         if ([string]::IsNullOrWhiteSpace($User.firstName)) {
             throw "firstName saknas i användardatan."
         }
@@ -565,13 +621,26 @@ function New-OnboardifyADUser {
             throw "organizationUnit saknas i användardatan."
         }
 
+        # Kontrollerar om samma person redan finns i samma OU.
+        # Om användaren finns skapas inget nytt konto.
+        $existingPerson = Test-OnboardifyExistingPerson `
+            -FirstName $User.firstName `
+            -LastName $User.lastName `
+            -OrganizationUnit $User.organizationUnit
+
+        if ($existingPerson) {
+            Write-Host "Användaren finns redan i AD som $($existingPerson.SamAccountName)." -ForegroundColor Yellow
+
+            # Returnerar befintligt användarnamn till huvudscriptet.
+            return $existingPerson.SamAccountName
+        }
+
         # Använder e-post från indata om den finns.
-        # Om e-post saknas genereras den automatiskt.
         if ($User.PSObject.Properties.Name -contains "email" -and -not [string]::IsNullOrWhiteSpace($User.email)) {
             $emailAddress = $User.email.Trim().ToLower()
         }
         else {
-            # Hämtar domän och skapar nästa lediga e-postadress.
+            # Skapar e-post automatiskt om den saknas.
             $emailDomain = Get-OnboardifyEmailDomain -User $User
 
             $emailAddress = Get-NextEmailAddress `
@@ -580,8 +649,7 @@ function New-OnboardifyADUser {
                 -Domain $emailDomain
         }
 
-        # Använder UPN från indata om det finns.
-        # Om UPN saknas används samma värde som e-postadressen.
+        # Använder UPN från indata om den finns, annars samma som e-post.
         if ($User.PSObject.Properties.Name -contains "userPrincipalName" -and -not [string]::IsNullOrWhiteSpace($User.userPrincipalName)) {
             $userPrincipalName = $User.userPrincipalName.Trim().ToLower()
         }
@@ -589,28 +657,27 @@ function New-OnboardifyADUser {
             $userPrincipalName = $emailAddress
         }
 
-        # Kontrollerar om användaren redan finns i AD baserat på e-post eller UPN.
-        # Detta gör att samma användare inte råkar skapas flera gånger om samma datafil körs igen.
+        # Kontrollerar om e-post eller UPN redan används.
         $existingUser = Test-OnboardifyExistingUser `
             -EmailAddress $emailAddress `
             -UserPrincipalName $userPrincipalName
 
         if ($existingUser) {
             Write-Host "Användaren finns redan i AD som $($existingUser.SamAccountName)." -ForegroundColor Yellow
-            return
+
+            # Returnerar befintligt användarnamn till huvudscriptet.
+            return $existingUser.SamAccountName
         }
 
         # Skapar nästa lediga SamAccountName.
-        # Exempel: Anders Svensson blir ands100.
         $username = Get-NextSamAccountName `
             -FirstName $User.firstName `
             -LastName $User.lastName
 
-        # Skapa randomiserat lösenord med 12 tecken och 2 icke-alfanumeriska tecken.
+        # Skapar ett slumpmässigt lösenord.
         $password = [System.Web.Security.Membership]::GeneratePassword(12, 2)
 
-        # Skapa en tabell med attribut som används för att skapa användaren i AD.
-        # Denna tabell skickas sedan in till New-ADUser med splatting.
+        # Attribut som skickas till New-ADUser.
         $userAttributes = @{
             SamAccountName    = $username
             UserPrincipalName = $userPrincipalName
@@ -622,14 +689,13 @@ function New-OnboardifyADUser {
             Name              = "$($User.firstName) $($User.lastName)"
         }
 
-        # Skapa användaren i AD.
+        # Skapar användaren i AD.
         New-ADUser @userAttributes `
             -AccountPassword (ConvertTo-SecureString $password -AsPlainText -Force) `
             -Enabled $true `
             -ErrorAction Stop
 
-        # Lägg till användaren i grupper efter att kontot har skapats.
-        # Grupper ska inte läggas i userAttributes eftersom memberOf inte sätts direkt vid New-ADUser.
+        # Lägger användaren i grupper efter att kontot skapats.
         foreach ($group in @($User.groups)) {
             Add-ADGroupMember `
                 -Identity $group `
@@ -637,14 +703,16 @@ function New-OnboardifyADUser {
                 -ErrorAction Stop
         }
 
-        # Skriver ut resultatet när användaren har skapats.
+        # Visar resultat i terminalen.
         Write-Host "Användaren $username har skapats i AD." -ForegroundColor Green
         Write-Host "E-post/UPN: $emailAddress" -ForegroundColor Green
         Write-Host "Lösenord: $password" -ForegroundColor Green
+
+        # Returnerar användarnamnet till huvudscriptet.
+        return $username
     }
     catch {
-        # Om något går fel visas ett tydligt felmeddelande.
-        # Om användarnamn inte hunnit skapas visas 'okänt användarnamn'.
+        # Visar tydligt fel om skapandet misslyckas.
         $displayUsername = if ($username) { $username } else { "okänt användarnamn" }
 
         Write-Host "Fel vid skapande av användaren ${displayUsername}: $($_.Exception.Message)" -ForegroundColor Red
