@@ -27,9 +27,21 @@ function Export-OnboardifyADStructure {
         New-Item -Path $OutputFolder -ItemType Directory -Force | Out-Null
     }
 
-    Write-Host "AD-struktur kommer sparas till: $OutputPath"
+    # ActiveDirectory-modulen krävs för Get-ADOrganizationalUnit.
+    Import-Module ActiveDirectory -ErrorAction Stop
 
-    return $OutputPath
+    # Hämtar alla OU:er från AD.
+    # Detta är endast läsning och gör inga ändringar i AD.
+    $OrganizationalUnits = Get-ADOrganizationalUnit `
+        -Filter * `
+        -Properties Name, DistinguishedName `
+        -ErrorAction Stop |
+        Sort-Object DistinguishedName |
+        Select-Object `
+            @{ Name = "name"; Expression = { $_.Name } },
+            @{ Name = "distinguishedName"; Expression = { $_.DistinguishedName } }
+
+    return $OrganizationalUnits
 }
 
 Export-ModuleMember -Function Export-OnboardifyADStructure
