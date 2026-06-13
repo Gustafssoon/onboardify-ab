@@ -132,6 +132,34 @@ function New-HrUserPreviewObject {
     return $user
 }
 
+function Save-HrRequestAsJson {
+    param(
+        [Parameter(Mandatory = $true)]
+        [PSCustomObject]$User
+    )
+
+    # Skapar mappen om den inte finns.
+    # HR-underlag ska hamna här tills IT har behandlat filen.
+    if (-not (Test-Path $script:HrRequestFolder)) {
+        New-Item -Path $script:HrRequestFolder -ItemType Directory -Force | Out-Null
+    }
+
+    # Skapar ett enkelt filnamn baserat på datum och namn.
+    $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+    $safeFirstName = $User.firstName -replace '[^a-zA-ZåäöÅÄÖ0-9]', ''
+    $safeLastName = $User.lastName -replace '[^a-zA-ZåäöÅÄÖ0-9]', ''
+
+    $fileName = "onboarding_${timestamp}_${safeFirstName}_${safeLastName}.json"
+    $filePath = Join-Path $script:HrRequestFolder $fileName
+
+    # Sparar som en array eftersom import/validering jobbar med en lista av användare.
+    @($User) |
+        ConvertTo-Json -Depth 5 |
+        Set-Content -Path $filePath -Encoding UTF8
+
+    return $filePath
+}
+
 function Test-HrFormInput {
     <#
         Enkel kontroll i GUI:t innan HR-underlaget visas.
@@ -427,9 +455,15 @@ $btnPreviewHrData.Location = New-Object System.Drawing.Point(20, 275)
 $btnPreviewHrData.Size = New-Object System.Drawing.Size(190, 40)
 $tabHR.Controls.Add($btnPreviewHrData)
 
+$btnSaveHrData = New-Object System.Windows.Forms.Button
+$btnSaveHrData.Text = "Spara JSON-underlag"
+$btnSaveHrData.Location = New-Object System.Drawing.Point(225, 275)
+$btnSaveHrData.Size = New-Object System.Drawing.Size(170, 40)
+$tabHR.Controls.Add($btnSaveHrData)
+
 $btnClearHrForm = New-Object System.Windows.Forms.Button
 $btnClearHrForm.Text = "Rensa HR-formulär"
-$btnClearHrForm.Location = New-Object System.Drawing.Point(225, 275)
+$btnClearHrForm.Location = New-Object System.Drawing.Point(410, 275)
 $btnClearHrForm.Size = New-Object System.Drawing.Size(150, 40)
 $tabHR.Controls.Add($btnClearHrForm)
 
@@ -475,6 +509,31 @@ $btnPreviewHrData.Add_Click({
     Write-GuiStatus "Licens: $($user.license)"
     Write-GuiStatus ""
     Write-GuiStatus "Nästa commit sparar detta som JSON-underlag till IT."
+})
+
+$btnSaveHrData.Add_Click({
+    Clear-GuiStatus
+
+    if (-not (Test-HrFormInput)) {
+        Write-GuiStatus "HR-underlaget är inte komplett."
+        return
+    }
+
+    try {
+        $user = New-HrUserPreviewObject
+        $filePath = Save-HrRequestAsJson -User $user
+
+        Write-GuiStatus "HR-underlag sparat som JSON."
+        Write-GuiStatus ""
+        Write-GuiStatus "Fil:"
+        Write-GuiStatus $filePath
+        Write-GuiStatus ""
+        Write-GuiStatus "Nästa steg:"
+        Write-GuiStatus "Skicka ärendet vidare till IT så att filen kan valideras och köras i Onboardify."
+    }
+    catch {
+        Write-GuiStatus "FEL: $($_.Exception.Message)"
+    }
 })
 
 $btnClearHrForm.Add_Click({
