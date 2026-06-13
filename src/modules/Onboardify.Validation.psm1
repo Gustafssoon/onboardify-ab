@@ -1,4 +1,4 @@
-# Onboardify.Validation.psm1
+﻿# Onboardify.Validation.psm1
 
 # Ser till att svenska tecken som å, ä och ö visas rätt i terminalen.
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
