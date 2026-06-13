@@ -138,13 +138,18 @@ function Save-HrRequestAsJson {
         [PSCustomObject]$User
     )
 
-    # Skapar mappen om den inte finns.
-    # HR-underlag ska hamna här tills IT har behandlat filen.
+    <#
+        Sparar HR-underlaget som en JSON-fil.
+
+        HR skapar bara underlaget.
+        IT använder sedan filen för att validera och köra onboarding-processen.
+    #>
+
     if (-not (Test-Path $script:HrRequestFolder)) {
         New-Item -Path $script:HrRequestFolder -ItemType Directory -Force | Out-Null
     }
 
-    # Skapar ett enkelt filnamn baserat på datum och namn.
+    # Skapar ett filnamn som är lätt att känna igen.
     $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
     $safeFirstName = $User.firstName -replace '[^a-zA-ZåäöÅÄÖ0-9]', ''
     $safeLastName = $User.lastName -replace '[^a-zA-ZåäöÅÄÖ0-9]', ''
@@ -162,7 +167,7 @@ function Save-HrRequestAsJson {
 
 function Test-HrFormInput {
     <#
-        Enkel kontroll i GUI:t innan HR-underlaget visas.
+        Enkel kontroll i GUI:t innan HR-underlaget visas eller sparas.
         Den riktiga valideringen finns i Onboardify.Validation.psm1,
         men GUI:t kan fånga upp enkla fel direkt.
     #>
@@ -199,6 +204,7 @@ function Test-HrFormInput {
 
     if ($missingFields.Count -gt 0) {
         $message = "Följande fält saknas: $($missingFields -join ', ')"
+
         [System.Windows.Forms.MessageBox]::Show(
             $message,
             "Saknade fält",
@@ -428,6 +434,7 @@ Add-FormLabel -Parent $tabHR -Text "Avdelning" -X 20 -Y 220 | Out-Null
 $txtDepartment = Add-TextBox -Parent $tabHR -X 150 -Y 218 -Width 240
 
 # Höger kolumn.
+# Etiketterna och fälten ligger lite längre ifrån varandra så texten inte överlappar.
 Add-FormLabel -Parent $tabHR -Text "OU" -X 430 -Y 130 | Out-Null
 $cmbOrganizationUnit = Add-ComboBox -Parent $tabHR -X 560 -Y 128 -Width 250
 
@@ -451,19 +458,19 @@ $tabHR.Controls.Add($lblGroupsHelp)
 
 $btnPreviewHrData = New-Object System.Windows.Forms.Button
 $btnPreviewHrData.Text = "Förhandsgranska underlag"
-$btnPreviewHrData.Location = New-Object System.Drawing.Point(20, 275)
+$btnPreviewHrData.Location = New-Object System.Drawing.Point(20, 285)
 $btnPreviewHrData.Size = New-Object System.Drawing.Size(190, 40)
 $tabHR.Controls.Add($btnPreviewHrData)
 
 $btnSaveHrData = New-Object System.Windows.Forms.Button
 $btnSaveHrData.Text = "Spara JSON-underlag"
-$btnSaveHrData.Location = New-Object System.Drawing.Point(225, 275)
+$btnSaveHrData.Location = New-Object System.Drawing.Point(225, 285)
 $btnSaveHrData.Size = New-Object System.Drawing.Size(170, 40)
 $tabHR.Controls.Add($btnSaveHrData)
 
 $btnClearHrForm = New-Object System.Windows.Forms.Button
 $btnClearHrForm.Text = "Rensa HR-formulär"
-$btnClearHrForm.Location = New-Object System.Drawing.Point(410, 275)
+$btnClearHrForm.Location = New-Object System.Drawing.Point(410, 285)
 $btnClearHrForm.Size = New-Object System.Drawing.Size(150, 40)
 $tabHR.Controls.Add($btnClearHrForm)
 
@@ -508,7 +515,7 @@ $btnPreviewHrData.Add_Click({
     Write-GuiStatus "Grupper: $($user.groups -join ', ')"
     Write-GuiStatus "Licens: $($user.license)"
     Write-GuiStatus ""
-    Write-GuiStatus "Nästa commit sparar detta som JSON-underlag till IT."
+    Write-GuiStatus "Nästa steg är att spara detta som JSON-underlag till IT."
 })
 
 $btnSaveHrData.Add_Click({
