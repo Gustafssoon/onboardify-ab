@@ -288,7 +288,7 @@ function Write-HrRequestPreview {
     }
 
     Write-GuiStatus ""
-    Write-GuiStatus "Nästa steg blir att koppla detta till DemoMode."
+    Write-GuiStatus "Nästa steg blir att köra detta i DemoMode."
 }
 
 function Invoke-OnboardifyDemoMode {
@@ -349,6 +349,56 @@ function Invoke-OnboardifyDemoMode {
         ExitCode = $process.ExitCode
         Output   = $standardOutput
         Error    = $standardError
+    }
+}
+
+function Write-OnboardifyProcessOutput {
+    param(
+        [AllowEmptyString()]
+        [string]$Text = ""
+    )
+
+    <#
+        Gör output från Start-Onboarding.ps1 mer läsbar i GUI:t.
+
+        Huvudscriptet skriver flera loggrader som JSON-rader.
+        I GUI:t vill vi visa dessa som vanlig text, så IT lättare kan läsa
+        vad DemoMode skulle göra.
+    #>
+
+    if ([string]::IsNullOrWhiteSpace($Text)) {
+        return
+    }
+
+    $lines = $Text -split "`r?`n"
+
+    foreach ($line in $lines) {
+        $cleanLine = $line.Trim()
+
+        if ([string]::IsNullOrWhiteSpace($cleanLine)) {
+            continue
+        }
+
+        try {
+            # Försöker läsa raden som JSON-logg.
+            $logEntry = $cleanLine | ConvertFrom-Json -ErrorAction Stop
+
+            if ($logEntry.Message) {
+                if ($logEntry.Level) {
+                    Write-GuiStatus "[$($logEntry.Level)] $($logEntry.Message)"
+                }
+                else {
+                    Write-GuiStatus $logEntry.Message
+                }
+
+                continue
+            }
+        }
+        catch {
+            # Om raden inte är JSON skriver vi ut den som vanlig text.
+        }
+
+        Write-GuiStatus $cleanLine
     }
 }
 
@@ -480,7 +530,7 @@ function Add-ComboBox {
 
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "Onboardify AB"
-$form.Size = New-Object System.Drawing.Size(900, 660)
+$form.Size = New-Object System.Drawing.Size(900, 760)
 $form.StartPosition = "CenterScreen"
 $form.FormBorderStyle = "FixedDialog"
 $form.MaximizeBox = $false
@@ -813,7 +863,7 @@ $btnLoadHrRequests.Add_Click({
         Write-GuiStatus "HR-underlag inlästa."
         Write-GuiStatus "Antal filer: $($script:HrRequestFiles.Count)"
         Write-GuiStatus ""
-        Write-GuiStatus "Välj en fil och klicka på Förhandsgranska HR-fil."
+        Write-GuiStatus "Välj en fil och klicka på Förhandsgranska HR-fil eller Kör DemoMode."
     }
     catch {
         Write-GuiStatus "FEL: $($_.Exception.Message)"
@@ -853,13 +903,15 @@ $btnRunDemoMode.Add_Click({
         $result = Invoke-OnboardifyDemoMode -DataPath $selectedPath
 
         if (-not [string]::IsNullOrWhiteSpace($result.Output)) {
-            Write-GuiStatus "Output:"
-            Write-GuiStatus $result.Output
+            Write-GuiStatus "Resultat från DemoMode:"
+            Write-GuiStatus ""
+            Write-OnboardifyProcessOutput -Text $result.Output
         }
 
         if (-not [string]::IsNullOrWhiteSpace($result.Error)) {
+            Write-GuiStatus ""
             Write-GuiStatus "Feloutput:"
-            Write-GuiStatus $result.Error
+            Write-OnboardifyProcessOutput -Text $result.Error
         }
 
         if ($result.ExitCode -eq 0) {
@@ -895,7 +947,7 @@ $txtStatus.ReadOnly = $true
 $txtStatus.ScrollBars = "Vertical"
 $txtStatus.Font = New-Object System.Drawing.Font("Consolas", 9)
 $txtStatus.Location = New-Object System.Drawing.Point(20, 525)
-$txtStatus.Size = New-Object System.Drawing.Size(840, 80)
+$txtStatus.Size = New-Object System.Drawing.Size(840, 180)
 $form.Controls.Add($txtStatus)
 
 Write-GuiStatus "Onboardify GUI startat."
