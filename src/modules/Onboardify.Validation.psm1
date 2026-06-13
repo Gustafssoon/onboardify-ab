@@ -43,7 +43,7 @@ function Test-OnboardifyUserData {
 
             # Kontrollerar att fältet finns på användarobjektet.
             if (-not ($user.PSObject.Properties.Name -contains $field)) {
-                Write-Host "Användardata saknar fält: $field" -ForegroundColor Red
+                Write-Host "VALIDERINGSFEL: Saknat fält | Användare: $($user.username) | Fält: $field" -ForegroundColor Red
                 return $false
             }
 
@@ -55,7 +55,7 @@ function Test-OnboardifyUserData {
 
                 # Kontrollerar att groups inte saknas helt.
                 if ($null -eq $value) {
-                    Write-Host "Användardata har inga grupper angivna." -ForegroundColor Red
+                    Write-Host "VALIDERINGSFEL: Saknar grupper | Användare: $($user.username)" -ForegroundColor Red
                     return $false
                 }
 
@@ -67,7 +67,7 @@ function Test-OnboardifyUserData {
 
                 # Kontrollerar att minst en grupp finns och att gruppnamnen inte är tomma.
                 if ($groups.Count -eq 0 -or $invalidGroups.Count -gt 0) {
-                    Write-Host "Användardata har tomt eller ogiltigt gruppfält." -ForegroundColor Red
+                    Write-Host "VALIDERINGSFEL: Gruppfältet innehåller inga giltiga grupper | Användare: $($user.username)" -ForegroundColor Red
                     return $false
                 }
 
@@ -77,24 +77,27 @@ function Test-OnboardifyUserData {
 
             # Kontrollerar att vanliga textfält inte är tomma.
             if ($null -eq $value -or [string]::IsNullOrWhiteSpace($value.ToString())) {
-                Write-Host "Användardata har tomt fält: $field" -ForegroundColor Red
+                Write-Host "VALIDERINGSFEL: Tomt fält | Användare: $($user.username) | Fält: $field" -ForegroundColor Red
                 return $false
             }
-            # VALIDERING: E-POST
-            if ($user.email -notmatch '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$') {
-             Write-Host "Ogiltigt e-postformat: $($user.email)" -ForegroundColor Red
-             return $false
-             }
-             # validering: användarnamn
-            if ($user.username -notmatch '^[a-zA-Z0-9._-]+$') {
-            Write-Host "Ogiltigt användarnamn: $($user.username)" -ForegroundColor Red
+            if ($field -eq "email") {
+            if ($value -notmatch '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$') {
+            Write-Host "VALIDERINGSFEL: Ogiltig e-post | Användare: $($user.username) | Värde: $value" -ForegroundColor Red
             return $false
-            }    
+                }
+            }
+
+            if ($field -eq "username") {
+            if ($value -notmatch '^[a-zA-Z0-9._-]+$') {
+            Write-Host "VALIDERINGSFEL: Ogiltigt användarnamn | Användare: $($user.username) | Värde: $value" -ForegroundColor Red
+            return $false
+                }
+            }
         }
         
 
         # Skrivs ut när en användare har passerat alla kontroller.
-        Write-Host "Användardata för $($user.firstName) $($user.lastName) är giltig." -ForegroundColor Green
+        Write-Host "VALIDERING OK | Användare: $($user.username) | Status: Godkänd" -ForegroundColor Green
     }
 
     # Om alla användare har kontrollerats utan fel returneras true.
