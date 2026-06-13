@@ -97,3 +97,105 @@
 * Förbereda Sprint Review och sammanställa vad som färdigställts under Sprint 3.
 * Fortsätta hålla GitHub-tavlan uppdaterad.
 * Fortsätta verifiera att de olika modulerna fungerar tillsammans som ett komplett onboarding-flöde.
+
+---
+
+# Daily Standup – 2026-06-13
+
+## Vad har vi gjort sedan förra mötet?
+
+### Ali
+
+* Issue #86 godkändes och mergades.
+* Dokumenterat Daily Standup och Retrospektiv för 2026-06-12.
+* Följt upp Sprint 3-dokumentationen.
+
+### Gabriel
+
+* Slutfört Issue #92 – Skapa en AD-skanner.
+* Integrerat AD-skannern med onboarding-flödet så att AD-strukturen läses in automatiskt innan onboarding startar.
+* Påbörjat testning av onboarding-flödet i AD-labbet.
+* Identifierat flera förbättringsområden och skapat nya issues och spikes.
+* Slutfört Issue #101 – Utreda säker generering av SamAccountName och dublettkontroll.
+* Rensat dubbletter i AD-modulen.
+* Uppdaterat README-dokumentationen.
+* Påbörjat arbete med Knowledge Management för Service Desk.
+
+### Zahra
+
+* Slutfört Issue #91 – Förbättra hemkatalogmodulen med homeFolder från användardata.
+* Uppdaterat funktionen så att homeFolder hämtas från användardata istället för hårdkodad sökväg.
+* Lagt till kontroll för befintlig hemkatalog.
+* Behållit loggning och felhantering.
+* Fått lösningen granskad, godkänd och mergad.
+
+### Micael
+
+* Arbetat med Spike – Vidareutveckla befintlig valideringsmodul.
+* Utökat validering av e-postformat, grupper och användarnamn.
+* Testat med både giltig och ogiltig JSON-data.
+* Verifierat att valideringen returnerar korrekta resultat.
+* Förbereder Pull Request.
+
+---
+
+## Vad ska vi göra tills nästa möte?
+
+### Ali
+
+* Dokumentera dagens Daily Standup, Retrospektiv och Sprint Review.
+* Förbereda Sprintplanering 4.
+
+### Gabriel
+
+* Fortsätta testning av onboarding-flödet i AD-labbet.
+* Felsöka och åtgärda problem som upptäcks under integrationstestning.
+
+### Zahra
+
+* Stödja fortsatt testning av hemkatalogsfunktionen i AD-miljö.
+
+### Micael
+
+* Skapa Pull Request för valideringsmodulen.
+* Fortsätta verifiera valideringen i hela onboarding-flödet.
+
+---
+
+## Finns det några hinder eller problem?
+
+### Gruppens status
+
+* Inga direkta blockerande problem rapporterades.
+
+### Identifierade risker
+
+* Flera problem upptäcks först när hela onboarding-flödet testas tillsammans.
+* Testning i AD-miljö kan ta längre tid än planerat.
+* Vissa funktioner behöver ytterligare verifiering innan slutredovisningen.
+
+---
+
+# Retrospektiv – 2026-06-13
+
+## Vad fungerade bra idag?
+
+* Gruppen har lyckats hålla arbetet framåt trots att inte alla kunnat delta fullt ut under sprinten.
+* Flera viktiga issues färdigställdes och mergades.
+* Testningen i AD-miljö har påbörjats.
+* Nya förbättringsområden identifierades genom testningen.
+* Projektet känns betydligt mer stabilt än tidigare sprintar.
+
+## Vad fungerade mindre bra idag?
+
+* Testningen av onboarding-flödet visade flera problem som behövde åtgärdas.
+* En del tid har gått åt till felsökning och integration mellan moduler.
+* Sprinten har varit mer utmanande eftersom inte alla gruppmedlemmar kunnat delta fullt ut under hela sprinten.
+
+## Vad ska vi förbättra till imorgon?
+
+* Fortsätta testa hela onboarding-flödet.
+* Färdigställa återstående Sprint 3-uppgifter.
+* Fortsätta stabilisera lösningen inför slutredovisningen.
+* Dokumentera testresultat och upptäckta problem.
+* Fortsätta åtgärda de problem som upptäcks under integrationstestningen.
