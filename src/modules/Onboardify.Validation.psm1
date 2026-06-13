@@ -19,11 +19,13 @@ function Test-OnboardifyUserData {
     $requiredFields = @(
         "firstName",
         "lastName",
+        "username",
         "title",
         "organizationUnit",
         "department",
         "groups",
-        "license"
+        "license",
+        "email"
     )
 
     <#
