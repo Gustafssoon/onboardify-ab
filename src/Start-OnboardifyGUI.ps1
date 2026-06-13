@@ -382,6 +382,69 @@ function Invoke-OnboardifyDemoMode {
     }
 }
 
+function Invoke-OnboardifySharpMode {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$DataPath
+    )
+
+    <#
+        Kör Onboardifys huvudscript skarpt.
+
+        Viktigt:
+        GUI:t skapar fortfarande inga AD-användare själv.
+        Det skickar HR-filen vidare till Start-Onboarding.ps1
+        utan -DemoMode.
+
+        Det är huvudscriptet och modulerna som skapar användare,
+        grupper och hemkataloger.
+    #>
+
+    if (-not (Test-Path $script:StartOnboardingPath)) {
+        throw "Huvudscriptet hittades inte: $script:StartOnboardingPath"
+    }
+
+    if (-not (Test-Path $DataPath)) {
+        throw "HR-filen hittades inte: $DataPath"
+    }
+
+    $arguments = @(
+        "-NoProfile"
+        "-ExecutionPolicy"
+        "Bypass"
+        "-File"
+        "`"$script:StartOnboardingPath`""
+        "-DataPath"
+        "`"$DataPath`""
+        "-StructurePath"
+        "`"$script:StructurePath`""
+    )
+
+    $processInfo = New-Object System.Diagnostics.ProcessStartInfo
+    $processInfo.FileName = "powershell.exe"
+    $processInfo.Arguments = $arguments -join " "
+    $processInfo.RedirectStandardOutput = $true
+    $processInfo.RedirectStandardError = $true
+    $processInfo.UseShellExecute = $false
+    $processInfo.CreateNoWindow = $true
+
+    $process = New-Object System.Diagnostics.Process
+    $process.StartInfo = $processInfo
+
+    [void]$process.Start()
+
+    $standardOutput = $process.StandardOutput.ReadToEnd()
+    $standardError = $process.StandardError.ReadToEnd()
+
+    $process.WaitForExit()
+
+    return [PSCustomObject]@{
+        ExitCode = $process.ExitCode
+        Output   = $standardOutput
+        Error    = $standardError
+    }
+}
+
 function Write-OnboardifyProcessOutput {
     param(
         [AllowEmptyString()]
@@ -883,6 +946,12 @@ $btnMarkAsProcessed.Location = New-Object System.Drawing.Point(400, 205)
 $btnMarkAsProcessed.Size = New-Object System.Drawing.Size(190, 40)
 $tabITRun.Controls.Add($btnMarkAsProcessed)
 
+$btnRunSharpMode = New-Object System.Windows.Forms.Button
+$btnRunSharpMode.Text = "Kör skarpt i AD"
+$btnRunSharpMode.Location = New-Object System.Drawing.Point(605, 205)
+$btnRunSharpMode.Size = New-Object System.Drawing.Size(170, 40)
+$tabITRun.Controls.Add($btnRunSharpMode)
+
 $btnLoadHrRequests.Add_Click({
     try {
         Clear-GuiStatus
@@ -960,6 +1029,60 @@ $btnRunDemoMode.Add_Click({
         else {
             Write-GuiStatus ""
             Write-GuiStatus "DemoMode avslutades med felkod: $($result.ExitCode)"
+        }
+    }
+    catch {
+        Write-GuiStatus "FEL: $($_.Exception.Message)"
+    }
+})
+
+$btnRunSharpMode.Add_Click({
+    try {
+        Clear-GuiStatus
+
+        $selectedPath = Get-SelectedHrRequestPath
+
+        $confirmResult = [System.Windows.Forms.MessageBox]::Show(
+            "VARNING!`n`nDetta kör onboarding skarpt och kan skapa användare, grupper och hemkataloger i AD.`n`nVill du fortsätta?",
+            "Skarp AD-körning",
+            [System.Windows.Forms.MessageBoxButtons]::YesNo,
+            [System.Windows.Forms.MessageBoxIcon]::Warning
+        )
+
+        if ($confirmResult -ne [System.Windows.Forms.DialogResult]::Yes) {
+            Write-GuiStatus "Skarp AD-körning avbröts."
+            return
+        }
+
+        Write-GuiStatus "Startar Onboardify skarpt..."
+        Write-GuiStatus "HR-fil:"
+        Write-GuiStatus $selectedPath
+        Write-GuiStatus ""
+        Write-GuiStatus "VARNING: Detta är inte DemoMode."
+        Write-GuiStatus ""
+
+        $result = Invoke-OnboardifySharpMode -DataPath $selectedPath
+
+        if (-not [string]::IsNullOrWhiteSpace($result.Output)) {
+            Write-GuiStatus "Resultat från skarp körning:"
+            Write-GuiStatus ""
+            Write-OnboardifyProcessOutput -Text $result.Output
+        }
+
+        if (-not [string]::IsNullOrWhiteSpace($result.Error)) {
+            Write-GuiStatus ""
+            Write-GuiStatus "Feloutput:"
+            Write-OnboardifyProcessOutput -Text $result.Error
+        }
+
+        if ($result.ExitCode -eq 0) {
+            Write-GuiStatus ""
+            Write-GuiStatus "Skarp onboarding klar."
+            Write-GuiStatus "Kontrollera användaren i AD innan HR-underlaget markeras som behandlat."
+        }
+        else {
+            Write-GuiStatus ""
+            Write-GuiStatus "Skarp onboarding avslutades med felkod: $($result.ExitCode)"
         }
     }
     catch {
