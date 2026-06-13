@@ -19,6 +19,7 @@ $script:RepoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 # Sökvägar som GUI:t använder.
 $script:StructurePath = Join-Path $script:RepoRoot "config\ad-structure.generated.json"
 $script:HrRequestFolder = Join-Path $script:RepoRoot "data\hr-requests\pending"
+$script:StartOnboardingPath = Join-Path $PSScriptRoot "Start-Onboarding.ps1"
 $script:HrRequestFiles = @()
 
 # ------------------------------------------------------------
@@ -288,6 +289,67 @@ function Write-HrRequestPreview {
 
     Write-GuiStatus ""
     Write-GuiStatus "Nästa steg blir att koppla detta till DemoMode."
+}
+
+function Invoke-OnboardifyDemoMode {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$DataPath
+    )
+
+    <#
+        Kör Onboardifys huvudscript i DemoMode.
+
+        Viktigt:
+        GUI:t skapar fortfarande inga AD-användare själv.
+        Det skickar bara HR-filen vidare till Start-Onboarding.ps1
+        med -DemoMode.
+    #>
+
+    if (-not (Test-Path $script:StartOnboardingPath)) {
+        throw "Huvudscriptet hittades inte: $script:StartOnboardingPath"
+    }
+
+    if (-not (Test-Path $DataPath)) {
+        throw "HR-filen hittades inte: $DataPath"
+    }
+
+    $arguments = @(
+        "-NoProfile"
+        "-ExecutionPolicy"
+        "Bypass"
+        "-File"
+        "`"$script:StartOnboardingPath`""
+        "-DataPath"
+        "`"$DataPath`""
+        "-StructurePath"
+        "`"$script:StructurePath`""
+        "-DemoMode"
+    )
+
+    $processInfo = New-Object System.Diagnostics.ProcessStartInfo
+    $processInfo.FileName = "powershell.exe"
+    $processInfo.Arguments = $arguments -join " "
+    $processInfo.RedirectStandardOutput = $true
+    $processInfo.RedirectStandardError = $true
+    $processInfo.UseShellExecute = $false
+    $processInfo.CreateNoWindow = $true
+
+    $process = New-Object System.Diagnostics.Process
+    $process.StartInfo = $processInfo
+
+    [void]$process.Start()
+
+    $standardOutput = $process.StandardOutput.ReadToEnd()
+    $standardError = $process.StandardError.ReadToEnd()
+
+    $process.WaitForExit()
+
+    return [PSCustomObject]@{
+        ExitCode = $process.ExitCode
+        Output   = $standardOutput
+        Error    = $standardError
+    }
 }
 
 function Test-HrFormInput {
@@ -729,6 +791,12 @@ $btnPreviewHrRequest.Location = New-Object System.Drawing.Point(20, 205)
 $btnPreviewHrRequest.Size = New-Object System.Drawing.Size(190, 40)
 $tabITRun.Controls.Add($btnPreviewHrRequest)
 
+$btnRunDemoMode = New-Object System.Windows.Forms.Button
+$btnRunDemoMode.Text = "Kör DemoMode"
+$btnRunDemoMode.Location = New-Object System.Drawing.Point(225, 205)
+$btnRunDemoMode.Size = New-Object System.Drawing.Size(160, 40)
+$tabITRun.Controls.Add($btnRunDemoMode)
+
 $btnLoadHrRequests.Add_Click({
     try {
         Clear-GuiStatus
@@ -765,6 +833,46 @@ $btnPreviewHrRequest.Add_Click({
         Write-GuiStatus ""
 
         Write-HrRequestPreview -Users $users
+    }
+    catch {
+        Write-GuiStatus "FEL: $($_.Exception.Message)"
+    }
+})
+
+$btnRunDemoMode.Add_Click({
+    try {
+        Clear-GuiStatus
+
+        $selectedPath = Get-SelectedHrRequestPath
+
+        Write-GuiStatus "Startar Onboardify i DemoMode..."
+        Write-GuiStatus "HR-fil:"
+        Write-GuiStatus $selectedPath
+        Write-GuiStatus ""
+
+        $result = Invoke-OnboardifyDemoMode -DataPath $selectedPath
+
+        if (-not [string]::IsNullOrWhiteSpace($result.Output)) {
+            Write-GuiStatus "Output:"
+            Write-GuiStatus $result.Output
+        }
+
+        if (-not [string]::IsNullOrWhiteSpace($result.Error)) {
+            Write-GuiStatus "Feloutput:"
+            Write-GuiStatus $result.Error
+        }
+
+        if ($result.ExitCode -eq 0) {
+            Write-GuiStatus ""
+            Write-GuiStatus "DemoMode klart."
+            Write-GuiStatus "Inga användare eller mappar har skapats."
+            Write-GuiStatus ""
+            Write-GuiStatus "Nästa steg är att IT granskar resultatet innan eventuell skarp körning."
+        }
+        else {
+            Write-GuiStatus ""
+            Write-GuiStatus "DemoMode avslutades med felkod: $($result.ExitCode)"
+        }
     }
     catch {
         Write-GuiStatus "FEL: $($_.Exception.Message)"
