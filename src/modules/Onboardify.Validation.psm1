@@ -84,8 +84,12 @@ function Test-OnboardifyUserData {
          Write-Host "Ogiltigt e-postformat: $($user.email)" -ForegroundColor Red
          return $false
         }
+        # validering: användarnamn
+        if ($user.username -notmatch '^[a-zA-Z0-9._-]+$') {
+        Write-Host "Ogiltigt användarnamn: $($user.username)" -ForegroundColor Red
+        return $false
+        }
         
-
         # Skrivs ut när en användare har passerat alla kontroller.
         Write-Host "Användardata för $($user.firstName) $($user.lastName) är giltig." -ForegroundColor Green
     }
