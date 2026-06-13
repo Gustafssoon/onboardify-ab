@@ -1,4 +1,4 @@
-﻿# Onboardify.Validation.psm1
+# Onboardify.Validation.psm1
 
 # Ser till att svenska tecken som å, ä och ö visas rätt i terminalen.
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -19,13 +19,11 @@ function Test-OnboardifyUserData {
     $requiredFields = @(
         "firstName",
         "lastName",
-        "username",
         "title",
         "organizationUnit",
         "department",
         "groups",
-        "license",
-        "email"
+        "license"
     )
 
     <#
@@ -39,11 +37,18 @@ function Test-OnboardifyUserData {
     #>
     foreach ($user in $Users) {
 
+        # Används i felmeddelanden. Username kan saknas eftersom det skapas automatiskt senare.
+        $displayName = "$($user.firstName) $($user.lastName)".Trim()
+
+        if ([string]::IsNullOrWhiteSpace($displayName)) {
+            $displayName = "Okänd användare"
+        }
+
         foreach ($field in $requiredFields) {
 
             # Kontrollerar att fältet finns på användarobjektet.
             if (-not ($user.PSObject.Properties.Name -contains $field)) {
-                Write-Host "VALIDERINGSFEL: Saknat fält | Användare: $($user.username) | Fält: $field" -ForegroundColor Red
+                Write-Host "VALIDERINGSFEL: Saknat fält | Användare: $displayName | Fält: $field" -ForegroundColor Red
                 return $false
             }
 
@@ -55,7 +60,7 @@ function Test-OnboardifyUserData {
 
                 # Kontrollerar att groups inte saknas helt.
                 if ($null -eq $value) {
-                    Write-Host "VALIDERINGSFEL: Saknar grupper | Användare: $($user.username)" -ForegroundColor Red
+                    Write-Host "VALIDERINGSFEL: Saknar grupper | Användare: $displayName" -ForegroundColor Red
                     return $false
                 }
 
@@ -63,11 +68,13 @@ function Test-OnboardifyUserData {
                 $groups = @($value)
 
                 # Letar efter tomma eller ogiltiga gruppnamn.
-                $invalidGroups = @($groups | Where-Object { [string]::IsNullOrWhiteSpace($_.ToString()) })
+                $invalidGroups = @($groups | Where-Object {
+                    [string]::IsNullOrWhiteSpace($_.ToString())
+                })
 
                 # Kontrollerar att minst en grupp finns och att gruppnamnen inte är tomma.
                 if ($groups.Count -eq 0 -or $invalidGroups.Count -gt 0) {
-                    Write-Host "VALIDERINGSFEL: Gruppfältet innehåller inga giltiga grupper | Användare: $($user.username)" -ForegroundColor Red
+                    Write-Host "VALIDERINGSFEL: Gruppfältet innehåller inga giltiga grupper | Användare: $displayName" -ForegroundColor Red
                     return $false
                 }
 
@@ -77,27 +84,35 @@ function Test-OnboardifyUserData {
 
             # Kontrollerar att vanliga textfält inte är tomma.
             if ($null -eq $value -or [string]::IsNullOrWhiteSpace($value.ToString())) {
-                Write-Host "VALIDERINGSFEL: Tomt fält | Användare: $($user.username) | Fält: $field" -ForegroundColor Red
+                Write-Host "VALIDERINGSFEL: Tomt fält | Användare: $displayName | Fält: $field" -ForegroundColor Red
                 return $false
             }
-            if ($field -eq "email") {
-            if ($value -notmatch '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$') {
-            Write-Host "VALIDERINGSFEL: Ogiltig e-post | Användare: $($user.username) | Värde: $value" -ForegroundColor Red
-            return $false
-                }
-            }
+        }
 
-            if ($field -eq "username") {
-            if ($value -notmatch '^[a-zA-Z0-9._-]+$') {
-            Write-Host "VALIDERINGSFEL: Ogiltigt användarnamn | Användare: $($user.username) | Värde: $value" -ForegroundColor Red
-            return $false
-                }
+        # Validerar email om fältet finns och inte är tomt.
+        # Email är inte obligatoriskt eftersom det kan skapas automatiskt av Onboardify.
+        if ($user.PSObject.Properties.Name -contains "email" -and
+            -not [string]::IsNullOrWhiteSpace($user.email)) {
+
+            if ($user.email -notmatch '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$') {
+                Write-Host "VALIDERINGSFEL: Ogiltig e-post | Användare: $displayName | Värde: $($user.email)" -ForegroundColor Red
+                return $false
             }
         }
-        
+
+        # Validerar username om fältet finns och inte är tomt.
+        # Username är inte obligatoriskt eftersom det kan skapas automatiskt av Onboardify.
+        if ($user.PSObject.Properties.Name -contains "username" -and
+            -not [string]::IsNullOrWhiteSpace($user.username)) {
+
+            if ($user.username -notmatch '^[a-zA-Z0-9._-]+$') {
+                Write-Host "VALIDERINGSFEL: Ogiltigt användarnamn | Användare: $displayName | Värde: $($user.username)" -ForegroundColor Red
+                return $false
+            }
+        }
 
         # Skrivs ut när en användare har passerat alla kontroller.
-        Write-Host "VALIDERING OK | Användare: $($user.username) | Status: Godkänd" -ForegroundColor Green
+        Write-Host "VALIDERING OK | Användare: $displayName | Status: Godkänd" -ForegroundColor Green
     }
 
     # Om alla användare har kontrollerats utan fel returneras true.
