@@ -18,5 +18,6 @@ Thumbs.db
 # VS Code lokal workspace
 .vscode/
 
-# Genererade filer
+# Onboardify - genererade filer från GUI och demo
 config/ad-structure.generated.json
+data/hr-requests/pending/*.json
