@@ -1,7 +1,6 @@
 ﻿# Start-OnboardifyGUI.ps1
 # Enkel WinForms-prototyp för Onboardify AB.
-# Den här filen är bara själva GUI-skalet.
-# AD-logik och onboarding-logik ska ligga kvar i befintliga moduler och script.
+# GUI:t ska hjälpa både IT och HR utan att lägga AD-logik direkt i formuläret.
 
 $ErrorActionPreference = "Stop"
 
@@ -17,7 +16,7 @@ Add-Type -AssemblyName System.Drawing
 # Eftersom den här filen ligger i src går vi ett steg upp.
 $script:RepoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 
-# Sökvägar som GUI:t kommer använda senare.
+# Sökvägar som GUI:t använder.
 $script:StructurePath = Join-Path $script:RepoRoot "config\ad-structure.generated.json"
 $script:HrRequestFolder = Join-Path $script:RepoRoot "data\hr-requests\pending"
 
@@ -27,12 +26,41 @@ $script:HrRequestFolder = Join-Path $script:RepoRoot "data\hr-requests\pending"
 
 function Write-GuiStatus {
     param(
-        [Parameter(Mandatory = $true)]
-        [string]$Message
+        [AllowEmptyString()]
+        [string]$Message = ""
     )
 
     # Skriver en rad i statusrutan längst ner i GUI:t.
+    # AllowEmptyString gör att vi kan skriva tomma rader i loggen.
     $txtStatus.AppendText("$Message`r`n")
+}
+
+function Clear-GuiStatus {
+    # Rensar statusrutan innan ett nytt steg startar.
+    $txtStatus.Clear()
+}
+
+function Start-OnboardifyAdScan {
+    <#
+        Kör Onboardifys befintliga AD-skanner.
+
+        Viktigt:
+        GUI:t ska inte själv innehålla AD-logik.
+        Därför importerar vi Onboardify.Discovery.psm1 och anropar
+        Export-OnboardifyADStructure, som redan finns i projektet.
+    #>
+
+    $discoveryModule = Join-Path $PSScriptRoot "modules\Onboardify.Discovery.psm1"
+
+    if (-not (Test-Path $discoveryModule)) {
+        throw "Discovery-modulen hittades inte: $discoveryModule"
+    }
+
+    Import-Module $discoveryModule -Force -ErrorAction Stop
+
+    $structure = Export-OnboardifyADStructure -OutputPath $script:StructurePath
+
+    return $structure
 }
 
 # ------------------------------------------------------------
@@ -41,7 +69,7 @@ function Write-GuiStatus {
 
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "Onboardify AB"
-$form.Size = New-Object System.Drawing.Size(780, 540)
+$form.Size = New-Object System.Drawing.Size(780, 560)
 $form.StartPosition = "CenterScreen"
 $form.FormBorderStyle = "FixedDialog"
 $form.MaximizeBox = $false
@@ -65,7 +93,7 @@ $form.Controls.Add($lblDescription)
 # Flikar för de tre huvudstegen.
 $tabs = New-Object System.Windows.Forms.TabControl
 $tabs.Location = New-Object System.Drawing.Point(20, 95)
-$tabs.Size = New-Object System.Drawing.Size(720, 285)
+$tabs.Size = New-Object System.Drawing.Size(720, 300)
 $form.Controls.Add($tabs)
 
 # Flik 1: IT förbereder miljön.
@@ -95,10 +123,50 @@ $lblITPrepare.Size = New-Object System.Drawing.Size(650, 25)
 $tabITPrepare.Controls.Add($lblITPrepare)
 
 $lblITPrepareInfo = New-Object System.Windows.Forms.Label
-$lblITPrepareInfo.Text = "Nästa commit kopplar denna vy till AD-skannern."
-$lblITPrepareInfo.Location = New-Object System.Drawing.Point(20, 60)
+$lblITPrepareInfo.Text = "Skanningen sparar AD-strukturen till config/ad-structure.generated.json."
+$lblITPrepareInfo.Location = New-Object System.Drawing.Point(20, 55)
 $lblITPrepareInfo.Size = New-Object System.Drawing.Size(650, 25)
 $tabITPrepare.Controls.Add($lblITPrepareInfo)
+
+$btnScanAD = New-Object System.Windows.Forms.Button
+$btnScanAD.Text = "Skanna AD"
+$btnScanAD.Location = New-Object System.Drawing.Point(20, 95)
+$btnScanAD.Size = New-Object System.Drawing.Size(160, 40)
+$tabITPrepare.Controls.Add($btnScanAD)
+
+$lblScanResult = New-Object System.Windows.Forms.Label
+$lblScanResult.Text = "Status: AD är inte skannat ännu."
+$lblScanResult.Location = New-Object System.Drawing.Point(20, 150)
+$lblScanResult.Size = New-Object System.Drawing.Size(650, 25)
+$tabITPrepare.Controls.Add($lblScanResult)
+
+# När IT klickar på knappen körs AD-skannern.
+$btnScanAD.Add_Click({
+    try {
+        Clear-GuiStatus
+        Write-GuiStatus "Startar AD-skanning..."
+
+        $structure = Start-OnboardifyAdScan
+
+        Write-GuiStatus "AD-skanning klar."
+        Write-GuiStatus "Strukturfil sparad:"
+        Write-GuiStatus $script:StructurePath
+
+        if ($structure.organizationalUnits) {
+            Write-GuiStatus "Antal OU:er hittade: $($structure.organizationalUnits.Count)"
+        }
+
+        Write-GuiStatus ""
+        Write-GuiStatus "Nästa steg:"
+        Write-GuiStatus "Ärendet är redo att skickas vidare till HR."
+
+        $lblScanResult.Text = "Status: AD-skanning klar. Ärendet är redo för HR."
+    }
+    catch {
+        Write-GuiStatus "FEL: $($_.Exception.Message)"
+        $lblScanResult.Text = "Status: AD-skanning misslyckades."
+    }
+})
 
 # ------------------------------------------------------------
 # HR - UNDERLAG
@@ -138,7 +206,7 @@ $tabITRun.Controls.Add($lblITRunInfo)
 
 $lblStatus = New-Object System.Windows.Forms.Label
 $lblStatus.Text = "Statuslogg:"
-$lblStatus.Location = New-Object System.Drawing.Point(20, 395)
+$lblStatus.Location = New-Object System.Drawing.Point(20, 410)
 $lblStatus.Size = New-Object System.Drawing.Size(720, 20)
 $form.Controls.Add($lblStatus)
 
@@ -147,12 +215,12 @@ $txtStatus.Multiline = $true
 $txtStatus.ReadOnly = $true
 $txtStatus.ScrollBars = "Vertical"
 $txtStatus.Font = New-Object System.Drawing.Font("Consolas", 9)
-$txtStatus.Location = New-Object System.Drawing.Point(20, 420)
-$txtStatus.Size = New-Object System.Drawing.Size(720, 65)
+$txtStatus.Location = New-Object System.Drawing.Point(20, 435)
+$txtStatus.Size = New-Object System.Drawing.Size(720, 70)
 $form.Controls.Add($txtStatus)
 
 Write-GuiStatus "Onboardify GUI startat."
-Write-GuiStatus "Börja med fliken IT - Förbered."
+Write-GuiStatus "Börja med fliken IT - Förbered och kör AD-skanning."
 
 # Startar själva Windows-fönstret.
 [void]$form.ShowDialog()
