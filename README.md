@@ -130,7 +130,7 @@ onboardify-ab/
 | ----------------------------------------------- | ----------------------------------------------- |
 | [Kom igång](docs/GET_STARTED.md)                | Guide för att klona repot och komma igång       |
 | [Git workflow](docs/GIT_WORKFLOW.md)            | Branches, commits och pull requests             |
-| [Sprintarbete](docs/SPRINT_README.md)           | Scrum, sprintar och Definition of Done          |
+| [Sprintarbete](docs/sprints/README.md)          | Scrum, sprintar och Definition of Done          |
 | [Förändringsledning](docs/change_management.md) | HR, IT, Awareness och Desire                    |
 | [Labbmiljö](docs/lab/)                          | Dokumentation för VM, AD-labb och åtkomst       |
 | [Sprintdokumentation](docs/sprints/)            | Daily standups, sprint review och retrospective |
