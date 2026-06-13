@@ -24,18 +24,23 @@ Genom att testa hela flödet får gruppen en bättre förståelse för hur syste
 
 ## Valda Issues för sprinten
 
-| Issue | Titel                                                                       | Ansvarig     | Status    |
-| ----- | --------------------------------------------------------------------------- | ------------ | --------- |
-| #21   | Lägga till demo-läge i scriptet                                             | Micael       | In Review |
-| #39   | Testa hela onboarding-flödet i AD-labbet                                    | Ej tilldelad | To Do     |
-| #85   | Vidareutveckla befintlig valideringsmodul (Spike)                           | Ej tilldelad | To Do     |
-| #86   | Vidareutveckla automatisk generering av användarnamn och e-post/UPN (Spike) | Ej tilldelad | To Do     |
-| #88   | Uppdatera README-dokumentationen                                            | Gabriel      | To Do     |
-| #91   | Förbättra hemkatalogmodulen med homeFolder från användardata                | Zahra        | To Do     |
-| #92   | Skapa en AD-skanner                                                         | Gabriel      | To Do     |
-| #47   | Dokumentera daily standups – Sprint 3                                       | Ali          | To Do     |
-| #50   | Dokumentera sprint review – Sprint 3                                        | Ali          | To Do     |
-| #74   | Dokumentera sprintplan – Sprint 3                                           | Ali          | To Do     |
+| Issue | Titel | Ansvarig | Status |
+|---------|---------|---------|---------|
+| #21 | Lägga till demo-läge i scriptet | Micael | In Review |
+| #39 | Testa hela onboarding-flödet i AD-labbet | Gabriel | To Do |
+| #85 | Vidareutveckla befintlig valideringsmodul (Spike) | Micael, Gabriel | To Do |
+| #86 | Vidareutveckla automatisk generering av användarnamn och e-post/UPN (Spike) | Ali | To Do |
+| #88 | Uppdatera README-dokumentationen | Gabriel | To Do |
+| #91 | Förbättra hemkatalogmodulen med homeFolder från användardata | Zahra | To Do |
+| #92 | Skapa en AD-skanner | Gabriel | To Do |
+| #101 | Utreda säker generering av SamAccountName och dublettkontroll (Spike) | Gabriel | To Do |
+| #106 | Rensa dubbletter i AD-modulen | Gabriel | To Do |
+| #108 | Justera onboarding-flöde för genererat användarnamn och hemkatalog | Gabriel | To Do |
+| #110 | Dokumentera Knowledge Management för Service Desk | Gabriel | To Do |
+| #47 | Dokumentera daily standups – Sprint 3 | Ali | To Do |
+| #50 | Dokumentera sprint review – Sprint 3 | Ali | To Do |
+| #74 | Dokumentera sprintplan – Sprint 3 | Ali | To Do |
+
 
 ---
 
