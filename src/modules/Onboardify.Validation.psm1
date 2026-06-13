@@ -14,9 +14,8 @@ function Test-OnboardifyUserData {
         [array]$Users
     )
 
-    # Definierar de fält som måste finnas för varje användare.
-    # De kan skapas automatiskt i AD-modulen.
-    # Det gör att HR eller testdata inte behöver fylla i tekniska fält manuellt.
+    # Definierar de fält som HR eller testdata måste fylla i.
+    # Tekniska fält som username, email och homeFolder skapas automatiskt av Onboardify.
     $requiredFields = @(
         "firstName",
         "lastName",
@@ -24,8 +23,7 @@ function Test-OnboardifyUserData {
         "organizationUnit",
         "department",
         "groups",
-        "license",
-        "homeFolder"
+        "license"
     )
 
     <#

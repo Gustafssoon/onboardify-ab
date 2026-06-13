@@ -27,19 +27,16 @@ try {
     Import-Module (Join-Path $PSScriptRoot "modules\Onboardify.Import.psm1") -Force
     Import-Module (Join-Path $PSScriptRoot "modules\Onboardify.Validation.psm1") -Force
 
+    # AD-modulen behövs både i DemoMode och vid skarp körning.
+    # I DemoMode används den för att räkna ut realistiska användarnamn.
+    Import-Module (Join-Path $PSScriptRoot "modules\Onboardify.AD.psm1") -Force
+
     # Funktioner som alltid behövs.
     $requiredFunctions = @(
         "Write-OnboardifyLog",
         "Export-OnboardifyADStructure",
         "Import-OnboardifyUserData",
-        "Test-OnboardifyUserData"
-    )
-
-    # AD-modulen behövs både i DemoMode och vid skarp körning.
-    # I DemoMode används den för att räkna ut realistiska användarnamn.
-    Import-Module (Join-Path $PSScriptRoot "modules\Onboardify.AD.psm1") -Force
-
-    $requiredFunctions += @(
+        "Test-OnboardifyUserData",
         "Get-NextSamAccountName",
         "Test-OnboardifyExistingPerson"
     )
@@ -125,7 +122,7 @@ try {
         Write-OnboardifyLog "Startar onboarding för $($user.firstName) $($user.lastName)"
 
         # Räknar ut användarnamn med samma logik som AD-modulen.
-        # Om användaren redan finns används befintligt användarnamn.
+        # Detta används i DemoMode för att visa vad som skulle skapas.
         $existingPerson = Test-OnboardifyExistingPerson `
             -FirstName $user.firstName `
             -LastName $user.lastName `
@@ -138,9 +135,13 @@ try {
             $username = Get-NextSamAccountName `
                 -FirstName $user.firstName `
                 -LastName $user.lastName
-}
+        }
 
-        if ($DemoMode) {New-OnboardifyHomeFolder -UserName $username
+        # Hemkatalog ska byggas av det användarnamn scriptet faktiskt använder.
+        # HR ska alltså inte behöva skriva homeFolder i JSON-filen.
+        $homeFolder = "\\fileserver\users\$username"
+
+        if ($DemoMode) {
             # I DemoMode loggar vi bara vad scriptet skulle ha gjort.
             Write-OnboardifyLog "[DEMO] Skulle skapa AD-användare för: $username"
             Write-OnboardifyLog "[DEMO] Skulle placera användaren i OU: $($user.organizationUnit)"
@@ -149,7 +150,7 @@ try {
                 Write-OnboardifyLog "[DEMO] Skulle lägga användaren i grupper: $($user.groups -join ', ')"
             }
 
-            Write-OnboardifyLog "[DEMO] Skulle skapa hemkatalog för: $username"
+            Write-OnboardifyLog "[DEMO] Skulle skapa hemkatalog: $homeFolder"
             Write-OnboardifyLog "[DEMO] Onboarding klar för $($user.firstName) $($user.lastName)"
         }
         else {
@@ -157,8 +158,11 @@ try {
             # Funktionen returnerar det användarnamn som faktiskt skapades eller redan finns.
             $username = New-OnboardifyADUser -User $user
 
+            # Bygger hemkatalogen från det returnerade användarnamnet.
+            $homeFolder = "\\fileserver\users\$username"
+
             # Skapar hemkatalog med samma användarnamn som AD-kontot.
-            New-OnboardifyHomeFolder -HomeFolder $user.homeFolder
+            New-OnboardifyHomeFolder -HomeFolder $homeFolder
 
             Write-OnboardifyLog "Onboarding-flöde klart för $($user.firstName) $($user.lastName)"
         }
