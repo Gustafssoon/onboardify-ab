@@ -79,6 +79,12 @@ function Test-OnboardifyUserData {
                 return $false
             }
         }
+        # VALIDERING: E-POST
+        if ($user.email -notmatch '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$') {
+         Write-Host "Ogiltigt e-postformat: $($user.email)" -ForegroundColor Red
+         return $false
+        }
+        
 
         # Skrivs ut när en användare har passerat alla kontroller.
         Write-Host "Användardata för $($user.firstName) $($user.lastName) är giltig." -ForegroundColor Green
