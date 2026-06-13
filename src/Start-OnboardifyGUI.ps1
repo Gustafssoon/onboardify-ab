@@ -19,6 +19,7 @@ $script:RepoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 # Sökvägar som GUI:t använder.
 $script:StructurePath = Join-Path $script:RepoRoot "config\ad-structure.generated.json"
 $script:HrRequestFolder = Join-Path $script:RepoRoot "data\hr-requests\pending"
+$script:HrRequestFiles = @()
 
 # ------------------------------------------------------------
 # HJÄLPFUNKTIONER
@@ -163,6 +164,130 @@ function Save-HrRequestAsJson {
         Set-Content -Path $filePath -Encoding UTF8
 
     return $filePath
+}
+
+function Get-HrRequestFiles {
+    <#
+        Hämtar HR-underlag som väntar på IT.
+
+        HR sparar JSON-filer i data/hr-requests/pending.
+        IT använder den här listan för att välja vilket underlag som ska granskas.
+    #>
+
+    if (-not (Test-Path $script:HrRequestFolder)) {
+        return @()
+    }
+
+    $files = @(
+        Get-ChildItem -Path $script:HrRequestFolder -Filter "*.json" -File |
+            Sort-Object LastWriteTime -Descending
+    )
+
+    return $files
+}
+
+function Update-ItHrRequestList {
+    <#
+        Uppdaterar listan i IT-fliken med HR-underlag som finns i pending-mappen.
+    #>
+
+    $cmbHrRequestFile.Items.Clear()
+    $script:HrRequestFiles = @(Get-HrRequestFiles)
+
+    if ($script:HrRequestFiles.Count -eq 0) {
+        $lblItRequestStatus.Text = "Status: Inga HR-underlag hittades."
+        return
+    }
+
+    foreach ($file in $script:HrRequestFiles) {
+        [void]$cmbHrRequestFile.Items.Add($file.Name)
+    }
+
+    $cmbHrRequestFile.SelectedIndex = 0
+    $lblItRequestStatus.Text = "Status: $($script:HrRequestFiles.Count) HR-underlag hittades."
+}
+
+function Get-SelectedHrRequestPath {
+    <#
+        Hämtar sökvägen till den JSON-fil som IT har valt i dropdown-listan.
+    #>
+
+    if ($cmbHrRequestFile.SelectedIndex -lt 0) {
+        throw "Välj ett HR-underlag först."
+    }
+
+    $selectedFile = $script:HrRequestFiles[$cmbHrRequestFile.SelectedIndex]
+
+    if (-not $selectedFile) {
+        throw "Det valda HR-underlaget kunde inte hittas."
+    }
+
+    return $selectedFile.FullName
+}
+
+function Read-HrRequestFile {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    <#
+        Läser ett HR-underlag från JSON.
+
+        Filen förväntas innehålla en lista med användare,
+        även om det bara är en användare i filen.
+    #>
+
+    if (-not (Test-Path $Path)) {
+        throw "HR-underlaget finns inte: $Path"
+    }
+
+    $users = Get-Content -Path $Path -Raw -Encoding UTF8 |
+        ConvertFrom-Json
+
+    return @($users)
+}
+
+function Write-HrRequestPreview {
+    param(
+        [Parameter(Mandatory = $true)]
+        [array]$Users
+    )
+
+    <#
+        Skriver en enkel förhandsgranskning av HR-underlaget i statusrutan.
+        Detta gör att IT kan kontrollera filen innan DemoMode eller skarp körning.
+    #>
+
+    if ($Users.Count -eq 0) {
+        Write-GuiStatus "HR-underlaget innehåller inga användare."
+        return
+    }
+
+    Write-GuiStatus "Förhandsgranskning av HR-underlag:"
+    Write-GuiStatus "Antal användare i filen: $($Users.Count)"
+    Write-GuiStatus ""
+
+    $counter = 1
+
+    foreach ($user in $Users) {
+        $groups = @($user.groups) -join ", "
+
+        Write-GuiStatus "Användare $counter"
+        Write-GuiStatus "Förnamn: $($user.firstName)"
+        Write-GuiStatus "Efternamn: $($user.lastName)"
+        Write-GuiStatus "Titel: $($user.title)"
+        Write-GuiStatus "Avdelning: $($user.department)"
+        Write-GuiStatus "OU: $($user.organizationUnit)"
+        Write-GuiStatus "Grupper: $groups"
+        Write-GuiStatus "Licens: $($user.license)"
+        Write-GuiStatus "------------------------------"
+
+        $counter++
+    }
+
+    Write-GuiStatus ""
+    Write-GuiStatus "Nästa steg blir att koppla detta till DemoMode."
 }
 
 function Test-HrFormInput {
@@ -563,16 +688,88 @@ $btnClearHrForm.Add_Click({
 # ------------------------------------------------------------
 
 $lblITRun = New-Object System.Windows.Forms.Label
-$lblITRun.Text = "Steg 3: IT läser HR-underlaget och kör onboarding."
+$lblITRun.Text = "Steg 3: IT läser HR-underlaget och förbereder onboarding."
 $lblITRun.Location = New-Object System.Drawing.Point(20, 25)
 $lblITRun.Size = New-Object System.Drawing.Size(760, 25)
 $tabITRun.Controls.Add($lblITRun)
 
 $lblITRunInfo = New-Object System.Windows.Forms.Label
-$lblITRunInfo.Text = "Den här vyn byggs ut senare så IT kan köra DemoMode eller skarp körning."
-$lblITRunInfo.Location = New-Object System.Drawing.Point(20, 60)
+$lblITRunInfo.Text = "Börja med att ladda in HR-underlag som ligger i data/hr-requests/pending."
+$lblITRunInfo.Location = New-Object System.Drawing.Point(20, 55)
 $lblITRunInfo.Size = New-Object System.Drawing.Size(760, 25)
 $tabITRun.Controls.Add($lblITRunInfo)
+
+$btnLoadHrRequests = New-Object System.Windows.Forms.Button
+$btnLoadHrRequests.Text = "Ladda HR-underlag"
+$btnLoadHrRequests.Location = New-Object System.Drawing.Point(20, 95)
+$btnLoadHrRequests.Size = New-Object System.Drawing.Size(160, 35)
+$tabITRun.Controls.Add($btnLoadHrRequests)
+
+$lblItRequestStatus = New-Object System.Windows.Forms.Label
+$lblItRequestStatus.Text = "Status: HR-underlag är inte inlästa."
+$lblItRequestStatus.Location = New-Object System.Drawing.Point(200, 102)
+$lblItRequestStatus.Size = New-Object System.Drawing.Size(580, 25)
+$tabITRun.Controls.Add($lblItRequestStatus)
+
+$lblHrRequestFile = New-Object System.Windows.Forms.Label
+$lblHrRequestFile.Text = "HR-fil"
+$lblHrRequestFile.Location = New-Object System.Drawing.Point(20, 155)
+$lblHrRequestFile.Size = New-Object System.Drawing.Size(100, 22)
+$tabITRun.Controls.Add($lblHrRequestFile)
+
+$cmbHrRequestFile = New-Object System.Windows.Forms.ComboBox
+$cmbHrRequestFile.Location = New-Object System.Drawing.Point(120, 152)
+$cmbHrRequestFile.Size = New-Object System.Drawing.Size(520, 22)
+$cmbHrRequestFile.DropDownStyle = "DropDownList"
+$tabITRun.Controls.Add($cmbHrRequestFile)
+
+$btnPreviewHrRequest = New-Object System.Windows.Forms.Button
+$btnPreviewHrRequest.Text = "Förhandsgranska HR-fil"
+$btnPreviewHrRequest.Location = New-Object System.Drawing.Point(20, 205)
+$btnPreviewHrRequest.Size = New-Object System.Drawing.Size(190, 40)
+$tabITRun.Controls.Add($btnPreviewHrRequest)
+
+$btnLoadHrRequests.Add_Click({
+    try {
+        Clear-GuiStatus
+        Write-GuiStatus "Letar efter HR-underlag..."
+
+        Update-ItHrRequestList
+
+        if ($script:HrRequestFiles.Count -eq 0) {
+            Write-GuiStatus "Inga HR-underlag hittades."
+            Write-GuiStatus "HR behöver först skapa och spara ett JSON-underlag."
+            return
+        }
+
+        Write-GuiStatus "HR-underlag inlästa."
+        Write-GuiStatus "Antal filer: $($script:HrRequestFiles.Count)"
+        Write-GuiStatus ""
+        Write-GuiStatus "Välj en fil och klicka på Förhandsgranska HR-fil."
+    }
+    catch {
+        Write-GuiStatus "FEL: $($_.Exception.Message)"
+        $lblItRequestStatus.Text = "Status: Kunde inte läsa HR-underlag."
+    }
+})
+
+$btnPreviewHrRequest.Add_Click({
+    try {
+        Clear-GuiStatus
+
+        $selectedPath = Get-SelectedHrRequestPath
+        $users = Read-HrRequestFile -Path $selectedPath
+
+        Write-GuiStatus "Vald HR-fil:"
+        Write-GuiStatus $selectedPath
+        Write-GuiStatus ""
+
+        Write-HrRequestPreview -Users $users
+    }
+    catch {
+        Write-GuiStatus "FEL: $($_.Exception.Message)"
+    }
+})
 
 # ------------------------------------------------------------
 # STATUSLOGG
