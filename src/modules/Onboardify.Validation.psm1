@@ -89,7 +89,12 @@ function Test-OnboardifyUserData {
         Write-Host "Ogiltigt användarnamn: $($user.username)" -ForegroundColor Red
         return $false
         }
-        
+        # validering: grupp
+        if ($user.groups -isnot [array] -or $user.groups.Count -eq 0) {
+        Write-Host "Användaren $($user.username) måste tillhöra minst en grupp." -ForegroundColor Red
+        return $false
+        }
+
         # Skrivs ut när en användare har passerat alla kontroller.
         Write-Host "Användardata för $($user.firstName) $($user.lastName) är giltig." -ForegroundColor Green
     }
