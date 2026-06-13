@@ -19,6 +19,7 @@ $script:RepoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 # Sökvägar som GUI:t använder.
 $script:StructurePath = Join-Path $script:RepoRoot "config\ad-structure.generated.json"
 $script:HrRequestFolder = Join-Path $script:RepoRoot "data\hr-requests\pending"
+$script:ProcessedHrRequestFolder = Join-Path $script:RepoRoot "data\hr-requests\processed"
 $script:StartOnboardingPath = Join-Path $PSScriptRoot "Start-Onboarding.ps1"
 $script:HrRequestFiles = @()
 
@@ -247,6 +248,35 @@ function Read-HrRequestFile {
         ConvertFrom-Json
 
     return @($users)
+}
+
+function Move-HrRequestToProcessed {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    <#
+        Flyttar ett HR-underlag från pending till processed.
+
+        Detta gör att IT kan markera ett ärende som behandlat
+        utan att radera filen.
+    #>
+
+    if (-not (Test-Path $Path)) {
+        throw "HR-underlaget finns inte: $Path"
+    }
+
+    if (-not (Test-Path $script:ProcessedHrRequestFolder)) {
+        New-Item -Path $script:ProcessedHrRequestFolder -ItemType Directory -Force | Out-Null
+    }
+
+    $fileName = Split-Path -Path $Path -Leaf
+    $destinationPath = Join-Path $script:ProcessedHrRequestFolder $fileName
+
+    Move-Item -Path $Path -Destination $destinationPath -Force
+
+    return $destinationPath
 }
 
 function Write-HrRequestPreview {
@@ -847,6 +877,12 @@ $btnRunDemoMode.Location = New-Object System.Drawing.Point(225, 205)
 $btnRunDemoMode.Size = New-Object System.Drawing.Size(160, 40)
 $tabITRun.Controls.Add($btnRunDemoMode)
 
+$btnMarkAsProcessed = New-Object System.Windows.Forms.Button
+$btnMarkAsProcessed.Text = "Markera som behandlad"
+$btnMarkAsProcessed.Location = New-Object System.Drawing.Point(400, 205)
+$btnMarkAsProcessed.Size = New-Object System.Drawing.Size(190, 40)
+$tabITRun.Controls.Add($btnMarkAsProcessed)
+
 $btnLoadHrRequests.Add_Click({
     try {
         Clear-GuiStatus
@@ -925,6 +961,40 @@ $btnRunDemoMode.Add_Click({
             Write-GuiStatus ""
             Write-GuiStatus "DemoMode avslutades med felkod: $($result.ExitCode)"
         }
+    }
+    catch {
+        Write-GuiStatus "FEL: $($_.Exception.Message)"
+    }
+})
+
+$btnMarkAsProcessed.Add_Click({
+    try {
+        Clear-GuiStatus
+
+        $selectedPath = Get-SelectedHrRequestPath
+
+        $confirmResult = [System.Windows.Forms.MessageBox]::Show(
+            "Vill du markera HR-underlaget som behandlat?`n`nFilen flyttas från pending till processed.",
+            "Markera som behandlad",
+            [System.Windows.Forms.MessageBoxButtons]::YesNo,
+            [System.Windows.Forms.MessageBoxIcon]::Question
+        )
+
+        if ($confirmResult -ne [System.Windows.Forms.DialogResult]::Yes) {
+            Write-GuiStatus "Åtgärden avbröts."
+            return
+        }
+
+        $processedPath = Move-HrRequestToProcessed -Path $selectedPath
+
+        Write-GuiStatus "HR-underlaget har markerats som behandlat."
+        Write-GuiStatus ""
+        Write-GuiStatus "Flyttad till:"
+        Write-GuiStatus $processedPath
+        Write-GuiStatus ""
+        Write-GuiStatus "Pending-listan uppdateras."
+
+        Update-ItHrRequestList
     }
     catch {
         Write-GuiStatus "FEL: $($_.Exception.Message)"

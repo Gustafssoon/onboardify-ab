@@ -21,3 +21,4 @@ Thumbs.db
 # Onboardify - genererade filer från GUI och demo
 config/ad-structure.generated.json
 data/hr-requests/pending/*.json
+data/hr-requests/processed/*.json
