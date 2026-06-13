@@ -108,6 +108,27 @@ function Update-HrOuList {
     return $structure
 }
 
+function Update-HrGroupList {
+    param(
+        [Parameter(Mandatory = $true)]
+        [PSCustomObject]$Structure
+    )
+
+    # Fyller grupplistan med grupper från AD-strukturen.
+    # HR kan välja flera grupper genom checkboxar.
+    $clbGroups.Items.Clear()
+
+    $groups = @($Structure.groups)
+
+    if ($groups.Count -eq 0) {
+        throw "Strukturfilen innehåller inga grupper. Kör AD-skannern igen."
+    }
+
+    foreach ($group in $groups) {
+        [void]$clbGroups.Items.Add($group.samAccountName)
+    }
+}
+
 function New-HrUserPreviewObject {
     <#
         Bygger ett PowerShell-objekt av det HR har fyllt i.
@@ -117,9 +138,8 @@ function New-HrUserPreviewObject {
     #>
 
     $groups = @(
-        $txtGroups.Text.Split(",") |
-            ForEach-Object { $_.Trim() } |
-            Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+    $clbGroups.CheckedItems |
+        ForEach-Object { $_.ToString() }
     )
 
     $user = [PSCustomObject]@{
@@ -524,8 +544,8 @@ function Test-HrFormInput {
         $missingFields += "OU"
     }
 
-    if ([string]::IsNullOrWhiteSpace($txtGroups.Text)) {
-        $missingFields += "Grupper"
+    if ($clbGroups.CheckedItems.Count -eq 0) {
+    $missingFields += "Grupper"
     }
 
     if ([string]::IsNullOrWhiteSpace($cmbLicense.Text)) {
@@ -769,11 +789,15 @@ Add-FormLabel -Parent $tabHR -Text "OU" -X 430 -Y 130 | Out-Null
 $cmbOrganizationUnit = Add-ComboBox -Parent $tabHR -X 560 -Y 128 -Width 250
 
 Add-FormLabel -Parent $tabHR -Text "Grupper" -X 430 -Y 160 | Out-Null
-$txtGroups = Add-TextBox -Parent $tabHR -X 560 -Y 158 -Width 250
-$txtGroups.Text = "ExempelGrupp"
 
-Add-FormLabel -Parent $tabHR -Text "Licens" -X 430 -Y 190 | Out-Null
-$cmbLicense = Add-ComboBox -Parent $tabHR -X 560 -Y 188 -Width 250
+$clbGroups = New-Object System.Windows.Forms.CheckedListBox
+$clbGroups.Location = New-Object System.Drawing.Point(560, 158)
+$clbGroups.Size = New-Object System.Drawing.Size(250, 90)
+$clbGroups.CheckOnClick = $true
+$tabHR.Controls.Add($clbGroups)
+
+Add-FormLabel -Parent $tabHR -Text "Licens" -X 430 -Y 285 | Out-Null
+$cmbLicense = Add-ComboBox -Parent $tabHR -X 560 -Y 283 -Width 250
 
 [void]$cmbLicense.Items.Add("Microsoft 365 F3")
 [void]$cmbLicense.Items.Add("Microsoft 365 E3")
@@ -781,26 +805,26 @@ $cmbLicense = Add-ComboBox -Parent $tabHR -X 560 -Y 188 -Width 250
 $cmbLicense.SelectedIndex = 0
 
 $lblGroupsHelp = New-Object System.Windows.Forms.Label
-$lblGroupsHelp.Text = "Flera grupper kan skrivas med kommatecken, till exempel: Lärare, Pedagoger"
-$lblGroupsHelp.Location = New-Object System.Drawing.Point(560, 220)
-$lblGroupsHelp.Size = New-Object System.Drawing.Size(260, 45)
+$lblGroupsHelp.Text = "Välj en eller flera grupper från AD-strukturen."
+$lblGroupsHelp.Location = New-Object System.Drawing.Point(560, 252)
+$lblGroupsHelp.Size = New-Object System.Drawing.Size(260, 30)
 $tabHR.Controls.Add($lblGroupsHelp)
 
 $btnPreviewHrData = New-Object System.Windows.Forms.Button
 $btnPreviewHrData.Text = "Förhandsgranska underlag"
-$btnPreviewHrData.Location = New-Object System.Drawing.Point(20, 285)
+$btnPreviewHrData.Location = New-Object System.Drawing.Point(20, 330)
 $btnPreviewHrData.Size = New-Object System.Drawing.Size(190, 40)
 $tabHR.Controls.Add($btnPreviewHrData)
 
 $btnSaveHrData = New-Object System.Windows.Forms.Button
 $btnSaveHrData.Text = "Spara JSON-underlag"
-$btnSaveHrData.Location = New-Object System.Drawing.Point(225, 285)
+$btnSaveHrData.Location = New-Object System.Drawing.Point(225, 330)
 $btnSaveHrData.Size = New-Object System.Drawing.Size(170, 40)
 $tabHR.Controls.Add($btnSaveHrData)
 
 $btnClearHrForm = New-Object System.Windows.Forms.Button
 $btnClearHrForm.Text = "Rensa HR-formulär"
-$btnClearHrForm.Location = New-Object System.Drawing.Point(410, 285)
+$btnClearHrForm.Location = New-Object System.Drawing.Point(410, 330)
 $btnClearHrForm.Size = New-Object System.Drawing.Size(150, 40)
 $tabHR.Controls.Add($btnClearHrForm)
 
@@ -810,6 +834,7 @@ $btnLoadStructure.Add_Click({
         Write-GuiStatus "Läser in AD-struktur för HR..."
 
         $structure = Update-HrOuList
+        Update-HrGroupList -Structure $structure
 
         Write-GuiStatus "AD-struktur inläst."
         Write-GuiStatus "Strukturfil:"
@@ -817,7 +842,7 @@ $btnLoadStructure.Add_Click({
         Write-GuiStatus "Skapad: $($structure.generatedAt)"
         Write-GuiStatus "Antal OU:er: $($structure.organizationalUnits.Count)"
 
-        $lblHrStructureStatus.Text = "Status: AD-struktur inläst. HR kan välja OU."
+        $lblHrStructureStatus.Text = "Status: AD-struktur inläst. HR kan välja OU och grupper."
     }
     catch {
         Write-GuiStatus "FEL: $($_.Exception.Message)"
@@ -878,7 +903,10 @@ $btnClearHrForm.Add_Click({
     $txtLastName.Clear()
     $txtTitle.Clear()
     $txtDepartment.Clear()
-    $txtGroups.Text = "ExempelGrupp"
+
+    for ($i = 0; $i -lt $clbGroups.Items.Count; $i++) {
+    $clbGroups.SetItemChecked($i, $false)
+    }
 
     if ($cmbLicense.Items.Count -gt 0) {
         $cmbLicense.SelectedIndex = 0
