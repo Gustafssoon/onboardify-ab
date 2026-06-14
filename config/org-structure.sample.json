@@ -1,5 +1,4 @@
-```json
-{
+﻿{
   "Kommunledning": {
     "DisplayName": "Kommunledningsförvaltningen",
     "Enheter": {
@@ -123,4 +122,3 @@
     }
   }
 }
-```

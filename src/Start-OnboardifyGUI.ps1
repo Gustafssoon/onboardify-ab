@@ -18,10 +18,18 @@ $script:RepoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 
 # Sökvägar som GUI:t använder.
 $script:StructurePath = Join-Path $script:RepoRoot "config\ad-structure.generated.json"
+$script:LicensesPath = Join-Path $script:RepoRoot "config\licenses.sample.json"
+$script:OrgStructurePath = Join-Path $script:RepoRoot "config\org-structure.sample.json"
+$script:TitlesPath = Join-Path $script:RepoRoot "config\titles.sample.json"
 $script:HrRequestFolder = Join-Path $script:RepoRoot "data\hr-requests\pending"
 $script:ProcessedHrRequestFolder = Join-Path $script:RepoRoot "data\hr-requests\processed"
 $script:StartOnboardingPath = Join-Path $PSScriptRoot "Start-Onboarding.ps1"
+
+# Globala värden som används i GUI:t.
 $script:HrRequestFiles = @()
+$script:DepartmentMap = @{}
+$script:OrgStructure = $null
+$script:AdStructure = $null
 
 # ------------------------------------------------------------
 # HJÄLPFUNKTIONER
@@ -33,24 +41,33 @@ function Write-GuiStatus {
         [string]$Message = ""
     )
 
-    # Skriver en rad i statusrutan längst ner i GUI:t.
-    # AllowEmptyString gör att vi kan skriva tomma rader i loggen.
     $txtStatus.AppendText("$Message`r`n")
 }
 
 function Clear-GuiStatus {
-    # Rensar statusrutan innan ett nytt steg startar.
     $txtStatus.Clear()
+}
+
+function Get-JsonConfig {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    if (-not (Test-Path $Path)) {
+        throw "Configfil saknas: $Path"
+    }
+
+    return Get-Content -Path $Path -Raw -Encoding UTF8 | ConvertFrom-Json
 }
 
 function Start-OnboardifyAdScan {
     <#
         Kör Onboardifys befintliga AD-skanner.
 
-        Viktigt:
         GUI:t ska inte själv innehålla AD-logik.
         Därför importerar vi Onboardify.Discovery.psm1 och anropar
-        Export-OnboardifyADStructure, som redan finns i projektet.
+        Export-OnboardifyADStructure.
     #>
 
     $discoveryModule = Join-Path $PSScriptRoot "modules\Onboardify.Discovery.psm1"
@@ -68,10 +85,9 @@ function Start-OnboardifyAdScan {
 
 function Get-OnboardifyAdStructure {
     <#
-        Läser strukturfilen som IT skapat med AD-skannern.
+        Läser strukturfilen som IT har skapat med AD-skannern.
 
-        HR-fliken använder den här filen för att veta vilka OU:er
-        som är godkända att välja mellan.
+        Filen innehåller bland annat OU:er och grupper.
     #>
 
     if (-not (Test-Path $script:StructurePath)) {
@@ -84,28 +100,164 @@ function Get-OnboardifyAdStructure {
     return $structure
 }
 
-function Update-HrOuList {
+function Update-HrCustomerOptionLists {
     <#
-        Läser OU:er från config/ad-structure.generated.json
-        och fyller dropdown-listan i HR-fliken.
+        Fyller dropdowns för titel, avdelning, enhet och licens.
+
+        Titel hämtas från config/titles.sample.json.
+        Licens hämtas från config/licenses.sample.json.
+        Avdelning och enhet hämtas från config/org-structure.sample.json.
     #>
 
-    $cmbOrganizationUnit.Items.Clear()
+    $cmbTitle.Items.Clear()
+    $cmbDepartment.Items.Clear()
+    $cmbUnit.Items.Clear()
+    $cmbLicense.Items.Clear()
 
-    $structure = Get-OnboardifyAdStructure
-    $organizationalUnits = @($structure.organizationalUnits)
+    $script:DepartmentMap = @{}
 
-    if ($organizationalUnits.Count -eq 0) {
-        throw "Strukturfilen innehåller inga OU:er."
+    $titleConfig = Get-JsonConfig -Path $script:TitlesPath
+    $licenseConfig = Get-JsonConfig -Path $script:LicensesPath
+    $script:OrgStructure = Get-JsonConfig -Path $script:OrgStructurePath
+
+    foreach ($title in @($titleConfig.Titlar)) {
+        [void]$cmbTitle.Items.Add($title)
     }
 
-    foreach ($ou in $organizationalUnits) {
-        [void]$cmbOrganizationUnit.Items.Add($ou.distinguishedName)
+    foreach ($department in $script:OrgStructure.PSObject.Properties) {
+        $displayName = $department.Value.DisplayName
+
+        if ([string]::IsNullOrWhiteSpace($displayName)) {
+            $displayName = $department.Name
+        }
+
+        $script:DepartmentMap[$displayName] = $department.Value
+        [void]$cmbDepartment.Items.Add($displayName)
     }
 
-    $cmbOrganizationUnit.SelectedIndex = 0
+    foreach ($license in @($licenseConfig.Licenser)) {
+        [void]$cmbLicense.Items.Add($license)
+    }
 
-    return $structure
+    if ($cmbTitle.Items.Count -gt 0) {
+        $cmbTitle.SelectedIndex = 0
+    }
+
+    if ($cmbDepartment.Items.Count -gt 0) {
+        $cmbDepartment.SelectedIndex = 0
+        Update-HrUnitList
+    }
+
+    if ($cmbLicense.Items.Count -gt 0) {
+        $cmbLicense.SelectedIndex = 0
+    }
+}
+
+function Update-HrUnitList {
+    <#
+        Fyller enhetslistan baserat på vald avdelning.
+    #>
+
+    $cmbUnit.Items.Clear()
+
+    $selectedDepartment = $cmbDepartment.Text
+
+    if ([string]::IsNullOrWhiteSpace($selectedDepartment)) {
+        return
+    }
+
+    $departmentConfig = $script:DepartmentMap[$selectedDepartment]
+
+    if (-not $departmentConfig -or -not $departmentConfig.Enheter) {
+        return
+    }
+
+    foreach ($unit in $departmentConfig.Enheter.PSObject.Properties) {
+        [void]$cmbUnit.Items.Add($unit.Name)
+    }
+
+    if ($cmbUnit.Items.Count -gt 0) {
+        $cmbUnit.SelectedIndex = 0
+    }
+}
+
+function Resolve-OnboardifyOuPath {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ConfiguredOu
+    )
+
+    <#
+        org-structure.sample.json kan innehålla OU utan DC-del.
+        Exempel:
+        OU=Användare,OU=Utbildningsförvaltningen,...
+
+        AD kräver full DistinguishedName.
+        Därför matchar vi mot AD-strukturen från Discovery och hämtar full OU.
+    #>
+
+    if ($ConfiguredOu -match ",DC=") {
+        return $ConfiguredOu
+    }
+
+    if (-not $script:AdStructure) {
+        $script:AdStructure = Get-OnboardifyAdStructure
+    }
+
+    $matches = @(
+        $script:AdStructure.organizationalUnits |
+            Where-Object {
+                $_.distinguishedName -eq $ConfiguredOu -or
+                $_.distinguishedName -like "$ConfiguredOu,*"
+            }
+    )
+
+    if ($matches.Count -eq 1) {
+        return $matches[0].distinguishedName
+    }
+
+    if ($matches.Count -gt 1) {
+        throw "Flera OU:er matchade: $ConfiguredOu"
+    }
+
+    throw "Kunde inte matcha OU mot AD-strukturen: $ConfiguredOu"
+}
+
+function Get-SelectedUnitOu {
+    <#
+        Hämtar rätt OU från vald avdelning och enhet.
+    #>
+
+    $selectedDepartment = $cmbDepartment.Text
+    $selectedUnit = $cmbUnit.Text
+
+    if ([string]::IsNullOrWhiteSpace($selectedDepartment)) {
+        throw "Välj avdelning."
+    }
+
+    if ([string]::IsNullOrWhiteSpace($selectedUnit)) {
+        throw "Välj enhet."
+    }
+
+    $departmentConfig = $script:DepartmentMap[$selectedDepartment]
+
+    if (-not $departmentConfig -or -not $departmentConfig.Enheter) {
+        throw "Ingen enhetsstruktur finns för vald avdelning."
+    }
+
+    $unitProperty = $departmentConfig.Enheter.PSObject.Properties[$selectedUnit]
+
+    if (-not $unitProperty) {
+        throw "Vald enhet hittades inte i org-strukturen."
+    }
+
+    $unitConfig = $unitProperty.Value
+
+    if (-not $unitConfig -or [string]::IsNullOrWhiteSpace($unitConfig.OU)) {
+        throw "Ingen OU är kopplad till vald enhet."
+    }
+
+    return Resolve-OnboardifyOuPath -ConfiguredOu $unitConfig.OU
 }
 
 function Update-HrGroupList {
@@ -114,8 +266,11 @@ function Update-HrGroupList {
         [PSCustomObject]$Structure
     )
 
-    # Fyller grupplistan med grupper från AD-strukturen.
-    # HR kan välja flera grupper genom checkboxar.
+    <#
+        Fyller grupplistan med grupper från AD-strukturen.
+        HR kan välja flera grupper genom checkboxar.
+    #>
+
     $clbGroups.Items.Clear()
 
     $groups = @($Structure.groups)
@@ -129,25 +284,39 @@ function Update-HrGroupList {
     }
 }
 
+function Update-HrAdStructureLists {
+    <#
+        Läser in AD-strukturen och fyller de fält som kommer från AD.
+        Just nu används den för grupper och för att kunna validera OU.
+    #>
+
+    $script:AdStructure = Get-OnboardifyAdStructure
+
+    Update-HrGroupList -Structure $script:AdStructure
+
+    return $script:AdStructure
+}
+
 function New-HrUserPreviewObject {
     <#
         Bygger ett PowerShell-objekt av det HR har fyllt i.
 
         Objektet följer samma grundstruktur som vår JSON/CSV-data
-        och kan senare sparas som JSON.
+        och kan sparas som JSON.
     #>
 
     $groups = @(
-    $clbGroups.CheckedItems |
-        ForEach-Object { $_.ToString() }
+        $clbGroups.CheckedItems |
+            ForEach-Object { $_.ToString() }
     )
 
     $user = [PSCustomObject]@{
         firstName        = $txtFirstName.Text.Trim()
         lastName         = $txtLastName.Text.Trim()
-        title            = $txtTitle.Text.Trim()
-        organizationUnit = $cmbOrganizationUnit.Text.Trim()
-        department       = $txtDepartment.Text.Trim()
+        title            = $cmbTitle.Text.Trim()
+        department       = $cmbDepartment.Text.Trim()
+        unit             = $cmbUnit.Text.Trim()
+        organizationUnit = Get-SelectedUnitOu
         groups           = $groups
         license          = $cmbLicense.Text.Trim()
     }
@@ -161,18 +330,10 @@ function Save-HrRequestAsJson {
         [PSCustomObject]$User
     )
 
-    <#
-        Sparar HR-underlaget som en JSON-fil.
-
-        HR skapar bara underlaget.
-        IT använder sedan filen för att validera och köra onboarding-processen.
-    #>
-
     if (-not (Test-Path $script:HrRequestFolder)) {
         New-Item -Path $script:HrRequestFolder -ItemType Directory -Force | Out-Null
     }
 
-    # Skapar ett filnamn som är lätt att känna igen.
     $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
     $safeFirstName = $User.firstName -replace '[^a-zA-ZåäöÅÄÖ0-9]', ''
     $safeLastName = $User.lastName -replace '[^a-zA-ZåäöÅÄÖ0-9]', ''
@@ -180,7 +341,6 @@ function Save-HrRequestAsJson {
     $fileName = "onboarding_${timestamp}_${safeFirstName}_${safeLastName}.json"
     $filePath = Join-Path $script:HrRequestFolder $fileName
 
-    # Sparar som en array eftersom import/validering jobbar med en lista av användare.
     @($User) |
         ConvertTo-Json -Depth 5 |
         Set-Content -Path $filePath -Encoding UTF8
@@ -189,13 +349,6 @@ function Save-HrRequestAsJson {
 }
 
 function Get-HrRequestFiles {
-    <#
-        Hämtar HR-underlag som väntar på IT.
-
-        HR sparar JSON-filer i data/hr-requests/pending.
-        IT använder den här listan för att välja vilket underlag som ska granskas.
-    #>
-
     if (-not (Test-Path $script:HrRequestFolder)) {
         return @()
     }
@@ -209,10 +362,6 @@ function Get-HrRequestFiles {
 }
 
 function Update-ItHrRequestList {
-    <#
-        Uppdaterar listan i IT-fliken med HR-underlag som finns i pending-mappen.
-    #>
-
     $cmbHrRequestFile.Items.Clear()
     $script:HrRequestFiles = @(Get-HrRequestFiles)
 
@@ -230,10 +379,6 @@ function Update-ItHrRequestList {
 }
 
 function Get-SelectedHrRequestPath {
-    <#
-        Hämtar sökvägen till den JSON-fil som IT har valt i dropdown-listan.
-    #>
-
     if ($cmbHrRequestFile.SelectedIndex -lt 0) {
         throw "Välj ett HR-underlag först."
     }
@@ -253,13 +398,6 @@ function Read-HrRequestFile {
         [string]$Path
     )
 
-    <#
-        Läser ett HR-underlag från JSON.
-
-        Filen förväntas innehålla en lista med användare,
-        även om det bara är en användare i filen.
-    #>
-
     if (-not (Test-Path $Path)) {
         throw "HR-underlaget finns inte: $Path"
     }
@@ -275,13 +413,6 @@ function Move-HrRequestToProcessed {
         [Parameter(Mandatory = $true)]
         [string]$Path
     )
-
-    <#
-        Flyttar ett HR-underlag från pending till processed.
-
-        Detta gör att IT kan markera ett ärende som behandlat
-        utan att radera filen.
-    #>
 
     if (-not (Test-Path $Path)) {
         throw "HR-underlaget finns inte: $Path"
@@ -305,11 +436,6 @@ function Write-HrRequestPreview {
         [array]$Users
     )
 
-    <#
-        Skriver en enkel förhandsgranskning av HR-underlaget i statusrutan.
-        Detta gör att IT kan kontrollera filen innan DemoMode eller skarp körning.
-    #>
-
     if ($Users.Count -eq 0) {
         Write-GuiStatus "HR-underlaget innehåller inga användare."
         return
@@ -329,6 +455,7 @@ function Write-HrRequestPreview {
         Write-GuiStatus "Efternamn: $($user.lastName)"
         Write-GuiStatus "Titel: $($user.title)"
         Write-GuiStatus "Avdelning: $($user.department)"
+        Write-GuiStatus "Enhet: $($user.unit)"
         Write-GuiStatus "OU: $($user.organizationUnit)"
         Write-GuiStatus "Grupper: $groups"
         Write-GuiStatus "Licens: $($user.license)"
@@ -341,84 +468,13 @@ function Write-HrRequestPreview {
     Write-GuiStatus "Nästa steg blir att köra detta i DemoMode."
 }
 
-function Invoke-OnboardifyDemoMode {
+function Invoke-OnboardifyMode {
     param(
         [Parameter(Mandatory = $true)]
-        [string]$DataPath
+        [string]$DataPath,
+
+        [switch]$DemoMode
     )
-
-    <#
-        Kör Onboardifys huvudscript i DemoMode.
-
-        Viktigt:
-        GUI:t skapar fortfarande inga AD-användare själv.
-        Det skickar bara HR-filen vidare till Start-Onboarding.ps1
-        med -DemoMode.
-    #>
-
-    if (-not (Test-Path $script:StartOnboardingPath)) {
-        throw "Huvudscriptet hittades inte: $script:StartOnboardingPath"
-    }
-
-    if (-not (Test-Path $DataPath)) {
-        throw "HR-filen hittades inte: $DataPath"
-    }
-
-    $arguments = @(
-        "-NoProfile"
-        "-ExecutionPolicy"
-        "Bypass"
-        "-File"
-        "`"$script:StartOnboardingPath`""
-        "-DataPath"
-        "`"$DataPath`""
-        "-StructurePath"
-        "`"$script:StructurePath`""
-        "-DemoMode"
-    )
-
-    $processInfo = New-Object System.Diagnostics.ProcessStartInfo
-    $processInfo.FileName = "powershell.exe"
-    $processInfo.Arguments = $arguments -join " "
-    $processInfo.RedirectStandardOutput = $true
-    $processInfo.RedirectStandardError = $true
-    $processInfo.UseShellExecute = $false
-    $processInfo.CreateNoWindow = $true
-
-    $process = New-Object System.Diagnostics.Process
-    $process.StartInfo = $processInfo
-
-    [void]$process.Start()
-
-    $standardOutput = $process.StandardOutput.ReadToEnd()
-    $standardError = $process.StandardError.ReadToEnd()
-
-    $process.WaitForExit()
-
-    return [PSCustomObject]@{
-        ExitCode = $process.ExitCode
-        Output   = $standardOutput
-        Error    = $standardError
-    }
-}
-
-function Invoke-OnboardifySharpMode {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$DataPath
-    )
-
-    <#
-        Kör Onboardifys huvudscript skarpt.
-
-        Viktigt:
-        GUI:t skapar fortfarande inga AD-användare själv.
-        Det skickar HR-filen vidare till Start-Onboarding.ps1
-        utan -DemoMode.
-
-        Det är huvudscriptet och modulerna som skapar användare,
-        grupper och hemkataloger.
-    #>
 
     if (-not (Test-Path $script:StartOnboardingPath)) {
         throw "Huvudscriptet hittades inte: $script:StartOnboardingPath"
@@ -439,6 +495,10 @@ function Invoke-OnboardifySharpMode {
         "-StructurePath"
         "`"$script:StructurePath`""
     )
+
+    if ($DemoMode) {
+        $arguments += "-DemoMode"
+    }
 
     $processInfo = New-Object System.Diagnostics.ProcessStartInfo
     $processInfo.FileName = "powershell.exe"
@@ -471,14 +531,6 @@ function Write-OnboardifyProcessOutput {
         [string]$Text = ""
     )
 
-    <#
-        Gör output från Start-Onboarding.ps1 mer läsbar i GUI:t.
-
-        Huvudscriptet skriver flera loggrader som JSON-rader.
-        I GUI:t vill vi visa dessa som vanlig text, så IT lättare kan läsa
-        vad DemoMode skulle göra.
-    #>
-
     if ([string]::IsNullOrWhiteSpace($Text)) {
         return
     }
@@ -493,7 +545,6 @@ function Write-OnboardifyProcessOutput {
         }
 
         try {
-            # Försöker läsa raden som JSON-logg.
             $logEntry = $cleanLine | ConvertFrom-Json -ErrorAction Stop
 
             if ($logEntry.Message) {
@@ -516,12 +567,6 @@ function Write-OnboardifyProcessOutput {
 }
 
 function Test-HrFormInput {
-    <#
-        Enkel kontroll i GUI:t innan HR-underlaget visas eller sparas.
-        Den riktiga valideringen finns i Onboardify.Validation.psm1,
-        men GUI:t kan fånga upp enkla fel direkt.
-    #>
-
     $missingFields = @()
 
     if ([string]::IsNullOrWhiteSpace($txtFirstName.Text)) {
@@ -532,20 +577,20 @@ function Test-HrFormInput {
         $missingFields += "Efternamn"
     }
 
-    if ([string]::IsNullOrWhiteSpace($txtTitle.Text)) {
+    if ([string]::IsNullOrWhiteSpace($cmbTitle.Text)) {
         $missingFields += "Titel"
     }
 
-    if ([string]::IsNullOrWhiteSpace($txtDepartment.Text)) {
+    if ([string]::IsNullOrWhiteSpace($cmbDepartment.Text)) {
         $missingFields += "Avdelning"
     }
 
-    if ([string]::IsNullOrWhiteSpace($cmbOrganizationUnit.Text)) {
-        $missingFields += "OU"
+    if ([string]::IsNullOrWhiteSpace($cmbUnit.Text)) {
+        $missingFields += "Enhet"
     }
 
     if ($clbGroups.CheckedItems.Count -eq 0) {
-    $missingFields += "Grupper"
+        $missingFields += "Grupper"
     }
 
     if ([string]::IsNullOrWhiteSpace($cmbLicense.Text)) {
@@ -648,7 +693,6 @@ $form.StartPosition = "CenterScreen"
 $form.FormBorderStyle = "FixedDialog"
 $form.MaximizeBox = $false
 
-# Rubrik högst upp.
 $lblTitle = New-Object System.Windows.Forms.Label
 $lblTitle.Text = "Onboardify AB - Onboardingverktyg"
 $lblTitle.Font = New-Object System.Drawing.Font("Segoe UI", 16, [System.Drawing.FontStyle]::Bold)
@@ -656,7 +700,6 @@ $lblTitle.Location = New-Object System.Drawing.Point(20, 20)
 $lblTitle.Size = New-Object System.Drawing.Size(840, 35)
 $form.Controls.Add($lblTitle)
 
-# Kort beskrivning under rubriken.
 $lblDescription = New-Object System.Windows.Forms.Label
 $lblDescription.Text = "IT förbereder AD-struktur, HR skapar underlag och IT kör onboarding."
 $lblDescription.Font = New-Object System.Drawing.Font("Segoe UI", 10)
@@ -664,21 +707,17 @@ $lblDescription.Location = New-Object System.Drawing.Point(22, 55)
 $lblDescription.Size = New-Object System.Drawing.Size(840, 25)
 $form.Controls.Add($lblDescription)
 
-# Flikar för de tre huvudstegen.
 $tabs = New-Object System.Windows.Forms.TabControl
 $tabs.Location = New-Object System.Drawing.Point(20, 95)
 $tabs.Size = New-Object System.Drawing.Size(840, 390)
 $form.Controls.Add($tabs)
 
-# Flik 1: IT förbereder miljön.
 $tabITPrepare = New-Object System.Windows.Forms.TabPage
 $tabITPrepare.Text = "IT - Förbered"
 
-# Flik 2: HR skapar onboarding-underlag.
 $tabHR = New-Object System.Windows.Forms.TabPage
 $tabHR.Text = "HR - Underlag"
 
-# Flik 3: IT kör onboarding.
 $tabITRun = New-Object System.Windows.Forms.TabPage
 $tabITRun.Text = "IT - Kör onboarding"
 
@@ -714,13 +753,13 @@ $lblScanResult.Location = New-Object System.Drawing.Point(20, 150)
 $lblScanResult.Size = New-Object System.Drawing.Size(760, 25)
 $tabITPrepare.Controls.Add($lblScanResult)
 
-# När IT klickar på knappen körs AD-skannern.
 $btnScanAD.Add_Click({
     try {
         Clear-GuiStatus
         Write-GuiStatus "Startar AD-skanning..."
 
         $structure = Start-OnboardifyAdScan
+        $script:AdStructure = $structure
 
         Write-GuiStatus "AD-skanning klar."
         Write-GuiStatus "Strukturfil sparad:"
@@ -728,6 +767,10 @@ $btnScanAD.Add_Click({
 
         if ($structure.organizationalUnits) {
             Write-GuiStatus "Antal OU:er hittade: $($structure.organizationalUnits.Count)"
+        }
+
+        if ($structure.groups) {
+            Write-GuiStatus "Antal grupper hittade: $($structure.groups.Count)"
         }
 
         Write-GuiStatus ""
@@ -753,7 +796,7 @@ $lblHR.Size = New-Object System.Drawing.Size(780, 25)
 $tabHR.Controls.Add($lblHR)
 
 $lblHRInfo = New-Object System.Windows.Forms.Label
-$lblHRInfo.Text = "Börja med att läsa in AD-strukturen som IT har skannat fram."
+$lblHRInfo.Text = "Läs in AD-strukturen och välj sedan avdelning, enhet, titel, grupper och licens."
 $lblHRInfo.Location = New-Object System.Drawing.Point(20, 45)
 $lblHRInfo.Size = New-Object System.Drawing.Size(780, 25)
 $tabHR.Controls.Add($lblHRInfo)
@@ -778,37 +821,41 @@ Add-FormLabel -Parent $tabHR -Text "Efternamn" -X 20 -Y 160 | Out-Null
 $txtLastName = Add-TextBox -Parent $tabHR -X 150 -Y 158 -Width 240
 
 Add-FormLabel -Parent $tabHR -Text "Titel" -X 20 -Y 190 | Out-Null
-$txtTitle = Add-TextBox -Parent $tabHR -X 150 -Y 188 -Width 240
+$cmbTitle = Add-ComboBox -Parent $tabHR -X 150 -Y 188 -Width 240
 
 Add-FormLabel -Parent $tabHR -Text "Avdelning" -X 20 -Y 220 | Out-Null
-$txtDepartment = Add-TextBox -Parent $tabHR -X 150 -Y 218 -Width 240
+$cmbDepartment = Add-ComboBox -Parent $tabHR -X 150 -Y 218 -Width 240
+
+Add-FormLabel -Parent $tabHR -Text "Enhet" -X 20 -Y 250 | Out-Null
+$cmbUnit = Add-ComboBox -Parent $tabHR -X 150 -Y 248 -Width 240
+
+$cmbDepartment.Add_SelectedIndexChanged({
+    Update-HrUnitList
+})
 
 # Höger kolumn.
-# Etiketterna och fälten ligger lite längre ifrån varandra så texten inte överlappar.
-Add-FormLabel -Parent $tabHR -Text "OU" -X 430 -Y 130 | Out-Null
-$cmbOrganizationUnit = Add-ComboBox -Parent $tabHR -X 560 -Y 128 -Width 250
+$lblResolvedOuInfo = New-Object System.Windows.Forms.Label
+$lblResolvedOuInfo.Text = "OU sätts automatiskt från vald avdelning och enhet."
+$lblResolvedOuInfo.Location = New-Object System.Drawing.Point(430, 130)
+$lblResolvedOuInfo.Size = New-Object System.Drawing.Size(380, 25)
+$tabHR.Controls.Add($lblResolvedOuInfo)
 
-Add-FormLabel -Parent $tabHR -Text "Grupper" -X 430 -Y 160 | Out-Null
+Add-FormLabel -Parent $tabHR -Text "Grupper" -X 430 -Y 165 | Out-Null
 
 $clbGroups = New-Object System.Windows.Forms.CheckedListBox
-$clbGroups.Location = New-Object System.Drawing.Point(560, 158)
+$clbGroups.Location = New-Object System.Drawing.Point(560, 163)
 $clbGroups.Size = New-Object System.Drawing.Size(250, 90)
 $clbGroups.CheckOnClick = $true
 $tabHR.Controls.Add($clbGroups)
 
-Add-FormLabel -Parent $tabHR -Text "Licens" -X 430 -Y 285 | Out-Null
-$cmbLicense = Add-ComboBox -Parent $tabHR -X 560 -Y 283 -Width 250
-
-[void]$cmbLicense.Items.Add("Microsoft 365 F3")
-[void]$cmbLicense.Items.Add("Microsoft 365 E3")
-[void]$cmbLicense.Items.Add("Microsoft 365 Business Standard")
-$cmbLicense.SelectedIndex = 0
-
 $lblGroupsHelp = New-Object System.Windows.Forms.Label
 $lblGroupsHelp.Text = "Välj en eller flera grupper från AD-strukturen."
-$lblGroupsHelp.Location = New-Object System.Drawing.Point(560, 252)
+$lblGroupsHelp.Location = New-Object System.Drawing.Point(560, 255)
 $lblGroupsHelp.Size = New-Object System.Drawing.Size(260, 30)
 $tabHR.Controls.Add($lblGroupsHelp)
+
+Add-FormLabel -Parent $tabHR -Text "Licens" -X 430 -Y 285 | Out-Null
+$cmbLicense = Add-ComboBox -Parent $tabHR -X 560 -Y 283 -Width 250
 
 $btnPreviewHrData = New-Object System.Windows.Forms.Button
 $btnPreviewHrData.Text = "Förhandsgranska underlag"
@@ -833,16 +880,16 @@ $btnLoadStructure.Add_Click({
         Clear-GuiStatus
         Write-GuiStatus "Läser in AD-struktur för HR..."
 
-        $structure = Update-HrOuList
-        Update-HrGroupList -Structure $structure
+        $structure = Update-HrAdStructureLists
 
         Write-GuiStatus "AD-struktur inläst."
         Write-GuiStatus "Strukturfil:"
         Write-GuiStatus $script:StructurePath
         Write-GuiStatus "Skapad: $($structure.generatedAt)"
         Write-GuiStatus "Antal OU:er: $($structure.organizationalUnits.Count)"
+        Write-GuiStatus "Antal grupper: $($structure.groups.Count)"
 
-        $lblHrStructureStatus.Text = "Status: AD-struktur inläst. HR kan välja OU och grupper."
+        $lblHrStructureStatus.Text = "Status: AD-struktur inläst. HR kan välja grupper."
     }
     catch {
         Write-GuiStatus "FEL: $($_.Exception.Message)"
@@ -858,19 +905,25 @@ $btnPreviewHrData.Add_Click({
         return
     }
 
-    $user = New-HrUserPreviewObject
+    try {
+        $user = New-HrUserPreviewObject
 
-    Write-GuiStatus "Förhandsgranskning av HR-underlag:"
-    Write-GuiStatus ""
-    Write-GuiStatus "Förnamn: $($user.firstName)"
-    Write-GuiStatus "Efternamn: $($user.lastName)"
-    Write-GuiStatus "Titel: $($user.title)"
-    Write-GuiStatus "Avdelning: $($user.department)"
-    Write-GuiStatus "OU: $($user.organizationUnit)"
-    Write-GuiStatus "Grupper: $($user.groups -join ', ')"
-    Write-GuiStatus "Licens: $($user.license)"
-    Write-GuiStatus ""
-    Write-GuiStatus "Nästa steg är att spara detta som JSON-underlag till IT."
+        Write-GuiStatus "Förhandsgranskning av HR-underlag:"
+        Write-GuiStatus ""
+        Write-GuiStatus "Förnamn: $($user.firstName)"
+        Write-GuiStatus "Efternamn: $($user.lastName)"
+        Write-GuiStatus "Titel: $($user.title)"
+        Write-GuiStatus "Avdelning: $($user.department)"
+        Write-GuiStatus "Enhet: $($user.unit)"
+        Write-GuiStatus "OU: $($user.organizationUnit)"
+        Write-GuiStatus "Grupper: $($user.groups -join ', ')"
+        Write-GuiStatus "Licens: $($user.license)"
+        Write-GuiStatus ""
+        Write-GuiStatus "Nästa steg är att spara detta som JSON-underlag till IT."
+    }
+    catch {
+        Write-GuiStatus "FEL: $($_.Exception.Message)"
+    }
 })
 
 $btnSaveHrData.Add_Click({
@@ -901,15 +954,22 @@ $btnSaveHrData.Add_Click({
 $btnClearHrForm.Add_Click({
     $txtFirstName.Clear()
     $txtLastName.Clear()
-    $txtTitle.Clear()
-    $txtDepartment.Clear()
 
-    for ($i = 0; $i -lt $clbGroups.Items.Count; $i++) {
-    $clbGroups.SetItemChecked($i, $false)
+    if ($cmbTitle.Items.Count -gt 0) {
+        $cmbTitle.SelectedIndex = 0
+    }
+
+    if ($cmbDepartment.Items.Count -gt 0) {
+        $cmbDepartment.SelectedIndex = 0
+        Update-HrUnitList
     }
 
     if ($cmbLicense.Items.Count -gt 0) {
         $cmbLicense.SelectedIndex = 0
+    }
+
+    for ($i = 0; $i -lt $clbGroups.Items.Count; $i++) {
+        $clbGroups.SetItemChecked($i, $false)
     }
 
     Clear-GuiStatus
@@ -1033,7 +1093,7 @@ $btnRunDemoMode.Add_Click({
         Write-GuiStatus $selectedPath
         Write-GuiStatus ""
 
-        $result = Invoke-OnboardifyDemoMode -DataPath $selectedPath
+        $result = Invoke-OnboardifyMode -DataPath $selectedPath -DemoMode
 
         if (-not [string]::IsNullOrWhiteSpace($result.Output)) {
             Write-GuiStatus "Resultat från DemoMode:"
@@ -1089,7 +1149,7 @@ $btnRunSharpMode.Add_Click({
         Write-GuiStatus "VARNING: Detta är inte DemoMode."
         Write-GuiStatus ""
 
-        $result = Invoke-OnboardifySharpMode -DataPath $selectedPath
+        $result = Invoke-OnboardifyMode -DataPath $selectedPath
 
         if (-not [string]::IsNullOrWhiteSpace($result.Output)) {
             Write-GuiStatus "Resultat från skarp körning:"
@@ -1171,9 +1231,17 @@ $txtStatus.Location = New-Object System.Drawing.Point(20, 525)
 $txtStatus.Size = New-Object System.Drawing.Size(840, 180)
 $form.Controls.Add($txtStatus)
 
+try {
+    Update-HrCustomerOptionLists
+    Write-GuiStatus "Kundval inlästa från configfiler."
+}
+catch {
+    Write-GuiStatus "VARNING: Kunde inte läsa kundval."
+    Write-GuiStatus $_.Exception.Message
+}
+
 Write-GuiStatus "Onboardify GUI startat."
 Write-GuiStatus "Börja med IT - Förbered om AD-strukturen inte redan är skannad."
 Write-GuiStatus "Gå sedan till HR - Underlag och läs in AD-strukturen."
 
-# Startar själva Windows-fönstret.
 [void]$form.ShowDialog()
