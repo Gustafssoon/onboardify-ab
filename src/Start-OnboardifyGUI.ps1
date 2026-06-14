@@ -980,38 +980,52 @@ function Add-ComboBox {
 
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "Onboardify AB"
-$form.Size = New-Object System.Drawing.Size(900, 880)
-$form.StartPosition = "CenterScreen"
-$form.FormBorderStyle = "FixedDialog"
-$form.MaximizeBox = $false
+$form.StartPosition = "Manual"
+$form.FormBorderStyle = "Sizable"
+$form.MaximizeBox = $true
+$form.MinimizeBox = $true
+$form.MinimumSize = New-Object System.Drawing.Size(800, 600)
+$form.AutoScroll = $false
+
+# Starta fönstret i hela skärmens arbetsyta.
+# Detta beter sig som maximerat läge, men undviker att statusloggen hamnar bakom aktivitetsfältet
+# på små laptopskärmar eller i VM/RDP.
+$workingArea = [System.Windows.Forms.Screen]::PrimaryScreen.WorkingArea
+$form.Bounds = $workingArea
 
 $lblTitle = New-Object System.Windows.Forms.Label
 $lblTitle.Text = "Onboardify AB - Onboardingverktyg"
 $lblTitle.Font = New-Object System.Drawing.Font("Segoe UI", 16, [System.Drawing.FontStyle]::Bold)
-$lblTitle.Location = New-Object System.Drawing.Point(20, 20)
+$lblTitle.Location = New-Object System.Drawing.Point(20, 15)
 $lblTitle.Size = New-Object System.Drawing.Size(840, 35)
+$lblTitle.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Right
 $form.Controls.Add($lblTitle)
 
 $lblDescription = New-Object System.Windows.Forms.Label
 $lblDescription.Text = "IT förbereder AD-struktur, HR skapar underlag och IT kör onboarding."
 $lblDescription.Font = New-Object System.Drawing.Font("Segoe UI", 10)
-$lblDescription.Location = New-Object System.Drawing.Point(22, 55)
+$lblDescription.Location = New-Object System.Drawing.Point(22, 50)
 $lblDescription.Size = New-Object System.Drawing.Size(840, 25)
+$lblDescription.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Right
 $form.Controls.Add($lblDescription)
 
 $tabs = New-Object System.Windows.Forms.TabControl
-$tabs.Location = New-Object System.Drawing.Point(20, 95)
+$tabs.Location = New-Object System.Drawing.Point(20, 85)
 $tabs.Size = New-Object System.Drawing.Size(840, 470)
+$tabs.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Right
 $form.Controls.Add($tabs)
 
 $tabITPrepare = New-Object System.Windows.Forms.TabPage
 $tabITPrepare.Text = "IT - Förbered"
+$tabITPrepare.AutoScroll = $true
 
 $tabHR = New-Object System.Windows.Forms.TabPage
 $tabHR.Text = "HR - Underlag"
+$tabHR.AutoScroll = $true
 
 $tabITRun = New-Object System.Windows.Forms.TabPage
 $tabITRun.Text = "IT - Kör onboarding"
+$tabITRun.AutoScroll = $true
 
 $tabs.TabPages.Add($tabITPrepare)
 $tabs.TabPages.Add($tabHR)
@@ -1555,6 +1569,7 @@ $lblStatus = New-Object System.Windows.Forms.Label
 $lblStatus.Text = "Statuslogg:"
 $lblStatus.Location = New-Object System.Drawing.Point(20, 580)
 $lblStatus.Size = New-Object System.Drawing.Size(840, 20)
+$lblStatus.Anchor = [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Right -bor [System.Windows.Forms.AnchorStyles]::Top
 $form.Controls.Add($lblStatus)
 
 $txtStatus = New-Object System.Windows.Forms.TextBox
@@ -1564,7 +1579,266 @@ $txtStatus.ScrollBars = "Vertical"
 $txtStatus.Font = New-Object System.Drawing.Font("Consolas", 9)
 $txtStatus.Location = New-Object System.Drawing.Point(20, 605)
 $txtStatus.Size = New-Object System.Drawing.Size(840, 220)
+$txtStatus.Anchor = [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Right -bor [System.Windows.Forms.AnchorStyles]::Top
 $form.Controls.Add($txtStatus)
+
+function Set-OnboardifyLabelLayout {
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.Windows.Forms.Control]$Parent,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Text,
+
+        [Parameter(Mandatory = $true)]
+        [int]$X,
+
+        [Parameter(Mandatory = $true)]
+        [int]$Y,
+
+        [int]$Width = 130,
+
+        [int]$Height = 22
+    )
+
+    foreach ($control in $Parent.Controls) {
+        if (($control -is [System.Windows.Forms.Label]) -and ($control.Text -eq $Text)) {
+            $control.Location = New-Object System.Drawing.Point($X, $Y)
+            $control.Size = New-Object System.Drawing.Size($Width, $Height)
+        }
+    }
+}
+
+function Set-OnboardifyControlLayout {
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.Windows.Forms.Control]$Control,
+
+        [Parameter(Mandatory = $true)]
+        [int]$X,
+
+        [Parameter(Mandatory = $true)]
+        [int]$Y,
+
+        [Parameter(Mandatory = $true)]
+        [int]$Width,
+
+        [Parameter(Mandatory = $true)]
+        [int]$Height
+    )
+
+    $Control.Location = New-Object System.Drawing.Point($X, $Y)
+    $Control.Size = New-Object System.Drawing.Size($Width, $Height)
+}
+
+function Update-OnboardifyGuiLayout {
+    <#
+        Huvudlayouten räknas om efter aktuell skärmstorlek.
+        Målet är att:
+        - fönstret använder skärmens arbetsyta
+        - flikarna får så mycket yta som möjligt
+        - statusloggen alltid syns längst ned
+        - flikarnas innehåll får egen scroll vid liten höjd/bredd
+    #>
+
+    if (-not $form.ClientSize -or $form.ClientSize.Width -le 0 -or $form.ClientSize.Height -le 0) {
+        return
+    }
+
+    $margin = 20
+    $contentWidth = [Math]::Max(720, $form.ClientSize.Width - ($margin * 2))
+
+    # Statusloggen får mindre höjd på laptopskärmar och större höjd på stora skärmar.
+    if ($form.ClientSize.Height -lt 720) {
+        $logHeight = 90
+    }
+    elseif ($form.ClientSize.Height -lt 850) {
+        $logHeight = 120
+    }
+    else {
+        $logHeight = 155
+    }
+
+    $lblTitle.Location = New-Object System.Drawing.Point($margin, 15)
+    $lblTitle.Width = $contentWidth
+
+    $lblDescription.Location = New-Object System.Drawing.Point(($margin + 2), 50)
+    $lblDescription.Width = $contentWidth
+
+    $tabsTop = 85
+    $tabsBottomGap = 12
+    $statusLabelHeight = 20
+    $statusGap = 6
+    $bottomMargin = 18
+
+    $tabsHeight = $form.ClientSize.Height - $tabsTop - $tabsBottomGap - $statusLabelHeight - $statusGap - $logHeight - $bottomMargin
+    $tabsHeight = [Math]::Max(300, $tabsHeight)
+
+    $tabs.Location = New-Object System.Drawing.Point($margin, $tabsTop)
+    $tabs.Size = New-Object System.Drawing.Size($contentWidth, $tabsHeight)
+
+    $lblStatus.Location = New-Object System.Drawing.Point($margin, ($tabs.Bottom + $tabsBottomGap))
+    $lblStatus.Size = New-Object System.Drawing.Size($contentWidth, $statusLabelHeight)
+
+    $txtStatusTop = $lblStatus.Bottom + $statusGap
+    $txtStatusHeight = $form.ClientSize.Height - $txtStatusTop - $bottomMargin
+    $txtStatusHeight = [Math]::Max(80, $txtStatusHeight)
+
+    $txtStatus.Location = New-Object System.Drawing.Point($margin, $txtStatusTop)
+    $txtStatus.Size = New-Object System.Drawing.Size($contentWidth, $txtStatusHeight)
+
+    Update-OnboardifyTabLayouts
+}
+
+function Update-OnboardifyTabLayouts {
+    if (-not $tabs.ClientSize -or $tabs.ClientSize.Width -le 0) {
+        return
+    }
+
+    $tabWidth = [Math]::Max(620, $tabs.ClientSize.Width - 35)
+    $tabHeight = [Math]::Max(260, $tabs.ClientSize.Height - 35)
+
+    # IT - Förbered
+    if ($lblITPrepare) {
+        $lblITPrepare.Width = $tabWidth - 40
+    }
+
+    if ($lblITPrepareInfo) {
+        $lblITPrepareInfo.Width = $tabWidth - 40
+    }
+
+    if ($lblScanResult) {
+        $lblScanResult.Width = $tabWidth - 40
+    }
+
+    if ($tabITPrepare) {
+        $tabITPrepare.AutoScrollMinSize = New-Object System.Drawing.Size(0, 220)
+    }
+
+    # HR - Underlag
+    if ($tabHR) {
+        $isNarrow = $tabWidth -lt 1050
+        $innerMargin = 30
+
+        $lblHR.Location = New-Object System.Drawing.Point($innerMargin, 20)
+        $lblHR.Size = New-Object System.Drawing.Size(($tabWidth - 60), 25)
+
+        $lblHRInfo.Location = New-Object System.Drawing.Point($innerMargin, 48)
+        $lblHRInfo.Size = New-Object System.Drawing.Size(($tabWidth - 60), 25)
+
+        Set-OnboardifyControlLayout -Control $btnLoadStructure -X $innerMargin -Y 82 -Width 170 -Height 35
+        Set-OnboardifyControlLayout -Control $lblHrStructureStatus -X 220 -Y 88 -Width ([Math]::Max(280, $tabWidth - 250)) -Height 25
+
+        if ($isNarrow) {
+            # Smal layout: en kolumn med scroll.
+            # Detta används på mindre skärmar så att inget trycks ut åt höger.
+            $labelX = $innerMargin
+            $controlX = 170
+            $controlWidth = [Math]::Max(360, $tabWidth - $controlX - 45)
+            $rightLabelX = $innerMargin
+            $rightControlX = 170
+            $rightControlWidth = $controlWidth
+
+            Set-OnboardifyLabelLayout -Parent $tabHR -Text "Förnamn" -X $labelX -Y 135 -Width 120
+            Set-OnboardifyControlLayout -Control $txtFirstName -X $controlX -Y 132 -Width $controlWidth -Height 24
+
+            Set-OnboardifyLabelLayout -Parent $tabHR -Text "Efternamn" -X $labelX -Y 170 -Width 120
+            Set-OnboardifyControlLayout -Control $txtLastName -X $controlX -Y 167 -Width $controlWidth -Height 24
+
+            Set-OnboardifyLabelLayout -Parent $tabHR -Text "Titel" -X $labelX -Y 205 -Width 120
+            Set-OnboardifyControlLayout -Control $cmbTitle -X $controlX -Y 202 -Width $controlWidth -Height 24
+
+            Set-OnboardifyLabelLayout -Parent $tabHR -Text "Avdelning" -X $labelX -Y 240 -Width 120
+            Set-OnboardifyControlLayout -Control $cmbDepartment -X $controlX -Y 237 -Width $controlWidth -Height 24
+
+            Set-OnboardifyLabelLayout -Parent $tabHR -Text "Enhet" -X $labelX -Y 275 -Width 120
+            Set-OnboardifyControlLayout -Control $cmbUnit -X $controlX -Y 272 -Width $controlWidth -Height 24
+
+            Set-OnboardifyLabelLayout -Parent $tabHR -Text "Beräknad OU" -X $rightLabelX -Y 325 -Width 120
+            Set-OnboardifyControlLayout -Control $txtResolvedOu -X $rightControlX -Y 322 -Width $rightControlWidth -Height 60
+
+            Set-OnboardifyLabelLayout -Parent $tabHR -Text "Mappbehörigheter" -X $rightLabelX -Y 400 -Width 130
+            Set-OnboardifyControlLayout -Control $clbGroups -X $rightControlX -Y 397 -Width $rightControlWidth -Height 95
+
+            $lblGroupsHelp.Location = New-Object System.Drawing.Point($rightControlX, 497)
+            $lblGroupsHelp.Size = New-Object System.Drawing.Size($rightControlWidth, 22)
+
+            Set-OnboardifyControlLayout -Control $btnExtraFolderAccess -X $rightControlX -Y 523 -Width $rightControlWidth -Height 30
+
+            Set-OnboardifyLabelLayout -Parent $tabHR -Text "Licenser" -X $rightLabelX -Y 572 -Width 120
+            Set-OnboardifyControlLayout -Control $txtSelectedLicenses -X $rightControlX -Y 569 -Width $rightControlWidth -Height 24
+            Set-OnboardifyControlLayout -Control $btnSelectLicenses -X $rightControlX -Y 601 -Width $rightControlWidth -Height 30
+
+            Set-OnboardifyControlLayout -Control $btnPreviewHrData -X $innerMargin -Y 655 -Width 210 -Height 42
+            Set-OnboardifyControlLayout -Control $btnSaveHrData -X 255 -Y 655 -Width 190 -Height 42
+            Set-OnboardifyControlLayout -Control $btnClearHrForm -X 465 -Y 655 -Width 170 -Height 42
+
+            $tabHR.AutoScrollMinSize = New-Object System.Drawing.Size(0, 735)
+        }
+        else {
+            # Bred layout: två kolumner. Den håller höjden nere på laptops.
+            $leftLabelX = $innerMargin
+            $leftControlX = 170
+            $rightLabelX = [Math]::Max(540, [int]($tabWidth * 0.47))
+            $rightControlX = $rightLabelX + 150
+            $rightControlWidth = [Math]::Max(300, $tabWidth - $rightControlX - 45)
+            $leftControlWidth = [Math]::Min(420, [Math]::Max(280, $rightLabelX - $leftControlX - 55))
+
+            Set-OnboardifyLabelLayout -Parent $tabHR -Text "Förnamn" -X $leftLabelX -Y 135 -Width 120
+            Set-OnboardifyControlLayout -Control $txtFirstName -X $leftControlX -Y 132 -Width $leftControlWidth -Height 24
+
+            Set-OnboardifyLabelLayout -Parent $tabHR -Text "Efternamn" -X $leftLabelX -Y 170 -Width 120
+            Set-OnboardifyControlLayout -Control $txtLastName -X $leftControlX -Y 167 -Width $leftControlWidth -Height 24
+
+            Set-OnboardifyLabelLayout -Parent $tabHR -Text "Titel" -X $leftLabelX -Y 205 -Width 120
+            Set-OnboardifyControlLayout -Control $cmbTitle -X $leftControlX -Y 202 -Width $leftControlWidth -Height 24
+
+            Set-OnboardifyLabelLayout -Parent $tabHR -Text "Avdelning" -X $leftLabelX -Y 240 -Width 120
+            Set-OnboardifyControlLayout -Control $cmbDepartment -X $leftControlX -Y 237 -Width $leftControlWidth -Height 24
+
+            Set-OnboardifyLabelLayout -Parent $tabHR -Text "Enhet" -X $leftLabelX -Y 275 -Width 120
+            Set-OnboardifyControlLayout -Control $cmbUnit -X $leftControlX -Y 272 -Width $leftControlWidth -Height 24
+
+            Set-OnboardifyLabelLayout -Parent $tabHR -Text "Beräknad OU" -X $rightLabelX -Y 135 -Width 140
+            Set-OnboardifyControlLayout -Control $txtResolvedOu -X $rightControlX -Y 132 -Width $rightControlWidth -Height 60
+
+            Set-OnboardifyLabelLayout -Parent $tabHR -Text "Mappbehörigheter" -X $rightLabelX -Y 210 -Width 140
+            Set-OnboardifyControlLayout -Control $clbGroups -X $rightControlX -Y 207 -Width $rightControlWidth -Height 95
+
+            $lblGroupsHelp.Location = New-Object System.Drawing.Point($rightControlX, 307)
+            $lblGroupsHelp.Size = New-Object System.Drawing.Size($rightControlWidth, 22)
+
+            Set-OnboardifyControlLayout -Control $btnExtraFolderAccess -X $rightControlX -Y 333 -Width $rightControlWidth -Height 30
+
+            Set-OnboardifyLabelLayout -Parent $tabHR -Text "Licenser" -X $rightLabelX -Y 382 -Width 140
+            Set-OnboardifyControlLayout -Control $txtSelectedLicenses -X $rightControlX -Y 379 -Width $rightControlWidth -Height 24
+            Set-OnboardifyControlLayout -Control $btnSelectLicenses -X $rightControlX -Y 411 -Width $rightControlWidth -Height 30
+
+            Set-OnboardifyControlLayout -Control $btnPreviewHrData -X $innerMargin -Y 340 -Width 210 -Height 42
+            Set-OnboardifyControlLayout -Control $btnSaveHrData -X 255 -Y 340 -Width 190 -Height 42
+            Set-OnboardifyControlLayout -Control $btnClearHrForm -X 465 -Y 340 -Width 170 -Height 42
+
+            $tabHR.AutoScrollMinSize = New-Object System.Drawing.Size(0, 480)
+        }
+    }
+
+    # IT - Kör onboarding
+    if ($tabITRun) {
+        $lblITRun.Width = $tabWidth - 40
+        $lblITRunInfo.Width = $tabWidth - 40
+        $lblItRequestStatus.Width = [Math]::Max(280, $tabWidth - 240)
+        $cmbHrRequestFile.Width = [Math]::Max(380, $tabWidth - 300)
+        $tabITRun.AutoScrollMinSize = New-Object System.Drawing.Size(0, 310)
+    }
+}
+
+$form.Add_Shown({
+    Update-OnboardifyGuiLayout
+})
+
+$form.Add_Resize({
+    Update-OnboardifyGuiLayout
+})
 
 try {
     Update-HrCustomerOptionLists
