@@ -14,11 +14,24 @@ if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Adm
         throw "Kunde inte starta om GUI:t som administratör eftersom scriptets sökväg saknas."
     }
 
-    Start-Process powershell.exe -Verb RunAs -ArgumentList @(
-        "-NoProfile",
-        "-ExecutionPolicy", "Bypass",
-        "-File", "`"$PSCommandPath`""
-    )
+    try {
+        Start-Process powershell.exe -Verb RunAs -WindowStyle Hidden -ArgumentList @(
+            "-NoProfile",
+            "-STA",
+            "-WindowStyle", "Hidden",
+            "-ExecutionPolicy", "Bypass",
+            "-File", "`"$PSCommandPath`""
+        )
+    }
+    catch {
+        Add-Type -AssemblyName System.Windows.Forms
+        [System.Windows.Forms.MessageBox]::Show(
+            "Onboardify GUI kunde inte startas som administratör.`n`n$($_.Exception.Message)",
+            "Onboardify AB",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Error
+        ) | Out-Null
+    }
 
     exit
 }
@@ -1087,6 +1100,7 @@ function Invoke-OnboardifyMode {
     $processInfo.RedirectStandardError = $true
     $processInfo.UseShellExecute = $false
     $processInfo.CreateNoWindow = $true
+    $processInfo.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
 
     $process = New-Object System.Diagnostics.Process
     $process.StartInfo = $processInfo
@@ -1275,21 +1289,21 @@ $form = New-Object System.Windows.Forms.Form
 Set-OnboardifyWindowIcon -Form $form
 
 $form.Text = "Onboardify AB"
-$form.StartPosition = "Manual"
+$form.StartPosition = "CenterScreen"
 $form.FormBorderStyle = "Sizable"
 $form.MaximizeBox = $true
 $form.MinimizeBox = $true
-$form.MinimumSize = New-Object System.Drawing.Size(800, 600)
 $form.AutoScroll = $false
 $form.BackColor = $script:Theme.Background
 $form.ForeColor = $script:Theme.Text
 $form.Font = New-Object System.Drawing.Font("Segoe UI", 9)
 
-# Starta fönstret i hela skärmens arbetsyta.
-# Detta beter sig som maximerat läge, men undviker att statusloggen hamnar bakom aktivitetsfältet
-# på små laptopskärmar eller i VM/RDP.
+# Normal standardstorlek och minimumstorlek; mindre skärmar får en storlek inom arbetsytan.
 $workingArea = [System.Windows.Forms.Screen]::PrimaryScreen.WorkingArea
-$form.Bounds = $workingArea
+$defaultWidth = [Math]::Min(1100, [Math]::Max(800, $workingArea.Width - 40))
+$defaultHeight = [Math]::Min(750, [Math]::Max(600, $workingArea.Height - 40))
+$form.Size = New-Object System.Drawing.Size($defaultWidth, $defaultHeight)
+$form.MinimumSize = New-Object System.Drawing.Size(800, 600)
 
 $picBrandIcon = New-Object System.Windows.Forms.PictureBox
 $picBrandIcon.Location = New-Object System.Drawing.Point(20, 12)
@@ -2068,9 +2082,8 @@ function Set-OnboardifyControlLayout {
 
 function Update-OnboardifyGuiLayout {
     <#
-        Huvudlayouten räknas om efter aktuell skärmstorlek.
+        Huvudlayouten räknas om efter aktuell fönsterstorlek.
         Målet är att:
-        - fönstret använder skärmens arbetsyta
         - flikarna får så mycket yta som möjligt
         - en kompakt statusrad alltid syns längst ned
         - statusloggen kan fällas ut vid behov
@@ -2125,7 +2138,7 @@ function Update-OnboardifyGuiLayout {
     }
 
     $tabsHeight = $form.ClientSize.Height - $tabsTop - $tabsBottomGap - $expandedStatusHeight - $compactStatusHeight - $bottomMargin
-    $tabsHeight = [Math]::Max(280, $tabsHeight)
+    $tabsHeight = [Math]::Max(220, $tabsHeight)
 
     $pnlTabHost.Location = New-Object System.Drawing.Point($margin, $tabsTop)
     $pnlTabHost.Size = New-Object System.Drawing.Size($contentWidth, $tabsHeight)
@@ -2276,7 +2289,22 @@ function Update-OnboardifyTabLayouts {
         $lblITRunInfo.Width = $tabWidth - 40
         $lblItRequestStatus.Width = [Math]::Max(280, $tabWidth - 240)
         $cmbHrRequestFile.Width = [Math]::Max(380, $tabWidth - 300)
-        $tabITRun.AutoScrollMinSize = New-Object System.Drawing.Size(0, 310)
+
+        if ($tabWidth -lt 820) {
+            # På smala fönster bryts åtgärdsknapparna till två rader.
+            Set-OnboardifyControlLayout -Control $btnPreviewHrRequest -X 20 -Y 205 -Width 190 -Height 40
+            Set-OnboardifyControlLayout -Control $btnRunDemoMode -X 225 -Y 205 -Width 160 -Height 40
+            Set-OnboardifyControlLayout -Control $btnMarkAsProcessed -X 20 -Y 260 -Width 190 -Height 40
+            Set-OnboardifyControlLayout -Control $btnRunSharpMode -X 225 -Y 260 -Width 170 -Height 40
+            $tabITRun.AutoScrollMinSize = New-Object System.Drawing.Size(0, 350)
+        }
+        else {
+            Set-OnboardifyControlLayout -Control $btnPreviewHrRequest -X 20 -Y 205 -Width 190 -Height 40
+            Set-OnboardifyControlLayout -Control $btnRunDemoMode -X 225 -Y 205 -Width 160 -Height 40
+            Set-OnboardifyControlLayout -Control $btnMarkAsProcessed -X 400 -Y 205 -Width 190 -Height 40
+            Set-OnboardifyControlLayout -Control $btnRunSharpMode -X 605 -Y 205 -Width 170 -Height 40
+            $tabITRun.AutoScrollMinSize = New-Object System.Drawing.Size(0, 310)
+        }
     }
 }
 
