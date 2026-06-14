@@ -980,10 +980,22 @@ function Add-ComboBox {
 
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "Onboardify AB"
-$form.Size = New-Object System.Drawing.Size(900, 880)
 $form.StartPosition = "CenterScreen"
-$form.FormBorderStyle = "FixedDialog"
-$form.MaximizeBox = $false
+
+# Gör fönstret användbart på mindre skärmar och gör det möjligt att maximera.
+$form.FormBorderStyle = "Sizable"
+$form.MaximizeBox = $true
+$form.MinimizeBox = $true
+$form.AutoScroll = $true
+$form.MinimumSize = New-Object System.Drawing.Size(760, 650)
+
+# Anpassar startstorleken efter skärmens arbetsyta.
+# Det gör att statusloggen inte hamnar utanför synlig yta på laptop/skärmar med lägre höjd.
+$workingArea = [System.Windows.Forms.Screen]::PrimaryScreen.WorkingArea
+$startWidth = [Math]::Min(900, [Math]::Max(760, $workingArea.Width - 80))
+$startHeight = [Math]::Min(880, [Math]::Max(650, $workingArea.Height - 80))
+
+$form.Size = New-Object System.Drawing.Size($startWidth, $startHeight)
 
 $lblTitle = New-Object System.Windows.Forms.Label
 $lblTitle.Text = "Onboardify AB - Onboardingverktyg"
@@ -1016,6 +1028,11 @@ $tabITRun.Text = "IT - Kör onboarding"
 $tabs.TabPages.Add($tabITPrepare)
 $tabs.TabPages.Add($tabHR)
 $tabs.TabPages.Add($tabITRun)
+
+# Gör att varje flik kan scrolla om innehållet inte får plats.
+foreach ($tabPage in @($tabITPrepare, $tabHR, $tabITRun)) {
+    $tabPage.AutoScroll = $true
+}
 
 # ------------------------------------------------------------
 # IT - FÖRBERED
@@ -1565,6 +1582,36 @@ $txtStatus.Font = New-Object System.Drawing.Font("Consolas", 9)
 $txtStatus.Location = New-Object System.Drawing.Point(20, 605)
 $txtStatus.Size = New-Object System.Drawing.Size(840, 220)
 $form.Controls.Add($txtStatus)
+
+# Anpassar bredd och höjd när fönstret ändrar storlek.
+# Statusloggen flyttas upp/ned efter flikområdet och får resterande synlig höjd.
+function Update-OnboardifyGuiLayout {
+    $contentWidth = [Math]::Max(700, $form.ClientSize.Width - 60)
+
+    foreach ($control in @($lblTitle, $lblDescription, $tabs, $lblStatus, $txtStatus)) {
+        if ($control) {
+            $control.Width = $contentWidth
+        }
+    }
+
+    if ($tabs -and $lblStatus -and $txtStatus) {
+        $tabs.Height = [Math]::Min(470, [Math]::Max(410, $form.ClientSize.Height - 260))
+
+        $statusTop = $tabs.Top + $tabs.Height + 15
+        $lblStatus.Location = New-Object System.Drawing.Point(20, $statusTop)
+
+        $txtStatusTop = $statusTop + 25
+        $txtStatus.Location = New-Object System.Drawing.Point(20, $txtStatusTop)
+
+        $txtStatus.Height = [Math]::Max(120, $form.ClientSize.Height - $txtStatusTop - 25)
+    }
+}
+
+Update-OnboardifyGuiLayout
+
+$form.Add_Resize({
+    Update-OnboardifyGuiLayout
+})
 
 try {
     Update-HrCustomerOptionLists
