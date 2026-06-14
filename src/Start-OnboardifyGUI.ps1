@@ -93,13 +93,13 @@ function Get-OnboardifyAdStructure {
 }
 
 function Update-HrCustomerOptionLists {
-    # Fyller dropdowns för titel, avdelning, enhet och licens.
+    # Fyller dropdowns/listor för titel, avdelning, enhet och licenser.
     # Grupper hämtas separat från AD-strukturen.
 
     $cmbTitle.Items.Clear()
     $cmbDepartment.Items.Clear()
     $cmbUnit.Items.Clear()
-    $cmbLicense.Items.Clear()
+    $clbLicenses.Items.Clear()
 
     $script:DepartmentMap = @{}
 
@@ -123,7 +123,7 @@ function Update-HrCustomerOptionLists {
     }
 
     foreach ($license in @($licenseConfig.Licenser)) {
-        [void]$cmbLicense.Items.Add($license)
+        [void]$clbLicenses.Items.Add($license)
     }
 
     if ($cmbTitle.Items.Count -gt 0) {
@@ -133,10 +133,6 @@ function Update-HrCustomerOptionLists {
     if ($cmbDepartment.Items.Count -gt 0) {
         $cmbDepartment.SelectedIndex = 0
         Update-HrUnitList
-    }
-
-    if ($cmbLicense.Items.Count -gt 0) {
-        $cmbLicense.SelectedIndex = 0
     }
 
     Update-ResolvedOuPreview
@@ -294,6 +290,11 @@ function New-HrUserPreviewObject {
             ForEach-Object { $_.ToString() }
     )
 
+    $licenses = @(
+        $clbLicenses.CheckedItems |
+            ForEach-Object { $_.ToString() }
+    )
+
     $user = [PSCustomObject]@{
         firstName        = $txtFirstName.Text.Trim()
         lastName         = $txtLastName.Text.Trim()
@@ -302,7 +303,10 @@ function New-HrUserPreviewObject {
         unit             = $cmbUnit.Text.Trim()
         organizationUnit = Get-SelectedUnitOu
         groups           = $groups
-        license          = $cmbLicense.Text.Trim()
+        licenses         = $licenses
+
+        # Bakåtkompatibelt fält om någon modul fortfarande använder "license".
+        license          = ($licenses -join ", ")
     }
 
     return $user
@@ -434,6 +438,16 @@ function Write-HrRequestPreview {
     foreach ($user in $Users) {
         $groups = @($user.groups) -join ", "
 
+        # Stöd både gamla filer med "license" och nya filer med "licenses".
+        $licenseText = ""
+
+        if ($user.PSObject.Properties.Name -contains "licenses") {
+            $licenseText = @($user.licenses) -join ", "
+        }
+        elseif ($user.PSObject.Properties.Name -contains "license") {
+            $licenseText = $user.license
+        }
+
         Write-GuiStatus "Användare $counter"
         Write-GuiStatus "Förnamn: $($user.firstName)"
         Write-GuiStatus "Efternamn: $($user.lastName)"
@@ -442,7 +456,7 @@ function Write-HrRequestPreview {
         Write-GuiStatus "Enhet: $($user.unit)"
         Write-GuiStatus "OU: $($user.organizationUnit)"
         Write-GuiStatus "Grupper: $groups"
-        Write-GuiStatus "Licens: $($user.license)"
+        Write-GuiStatus "Licenser: $licenseText"
         Write-GuiStatus "------------------------------"
 
         $counter++
@@ -577,8 +591,8 @@ function Test-HrFormInput {
         $missingFields += "Grupper"
     }
 
-    if ([string]::IsNullOrWhiteSpace($cmbLicense.Text)) {
-        $missingFields += "Licens"
+    if ($clbLicenses.CheckedItems.Count -eq 0) {
+        $missingFields += "Licenser"
     }
 
     if ($missingFields.Count -gt 0) {
@@ -672,7 +686,7 @@ function Add-ComboBox {
 
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "Onboardify AB"
-$form.Size = New-Object System.Drawing.Size(900, 760)
+$form.Size = New-Object System.Drawing.Size(900, 820)
 $form.StartPosition = "CenterScreen"
 $form.FormBorderStyle = "FixedDialog"
 $form.MaximizeBox = $false
@@ -693,7 +707,7 @@ $form.Controls.Add($lblDescription)
 
 $tabs = New-Object System.Windows.Forms.TabControl
 $tabs.Location = New-Object System.Drawing.Point(20, 95)
-$tabs.Size = New-Object System.Drawing.Size(840, 390)
+$tabs.Size = New-Object System.Drawing.Size(840, 430)
 $form.Controls.Add($tabs)
 
 $tabITPrepare = New-Object System.Windows.Forms.TabPage
@@ -780,7 +794,7 @@ $lblHR.Size = New-Object System.Drawing.Size(780, 25)
 $tabHR.Controls.Add($lblHR)
 
 $lblHRInfo = New-Object System.Windows.Forms.Label
-$lblHRInfo.Text = "Läs in AD-strukturen och välj sedan avdelning, enhet, titel, grupper och licens."
+$lblHRInfo.Text = "Läs in AD-strukturen och välj sedan avdelning, enhet, titel, grupper och licenser."
 $lblHRInfo.Location = New-Object System.Drawing.Point(20, 45)
 $lblHRInfo.Size = New-Object System.Drawing.Size(780, 25)
 $tabHR.Controls.Add($lblHRInfo)
@@ -827,44 +841,49 @@ Add-FormLabel -Parent $tabHR -Text "Beräknad OU" -X 430 -Y 130 | Out-Null
 
 $txtResolvedOu = New-Object System.Windows.Forms.TextBox
 $txtResolvedOu.Location = New-Object System.Drawing.Point(560, 128)
-$txtResolvedOu.Size = New-Object System.Drawing.Size(250, 45)
+$txtResolvedOu.Size = New-Object System.Drawing.Size(250, 55)
 $txtResolvedOu.Multiline = $true
 $txtResolvedOu.ReadOnly = $true
 $txtResolvedOu.ScrollBars = "Vertical"
 $tabHR.Controls.Add($txtResolvedOu)
 
-Add-FormLabel -Parent $tabHR -Text "Grupper" -X 430 -Y 185 | Out-Null
+Add-FormLabel -Parent $tabHR -Text "Grupper" -X 430 -Y 195 | Out-Null
 
 $clbGroups = New-Object System.Windows.Forms.CheckedListBox
-$clbGroups.Location = New-Object System.Drawing.Point(560, 183)
-$clbGroups.Size = New-Object System.Drawing.Size(250, 90)
+$clbGroups.Location = New-Object System.Drawing.Point(560, 193)
+$clbGroups.Size = New-Object System.Drawing.Size(250, 85)
 $clbGroups.CheckOnClick = $true
 $tabHR.Controls.Add($clbGroups)
 
 $lblGroupsHelp = New-Object System.Windows.Forms.Label
 $lblGroupsHelp.Text = "Välj en eller flera grupper från AD-strukturen."
-$lblGroupsHelp.Location = New-Object System.Drawing.Point(560, 275)
-$lblGroupsHelp.Size = New-Object System.Drawing.Size(260, 30)
+$lblGroupsHelp.Location = New-Object System.Drawing.Point(560, 280)
+$lblGroupsHelp.Size = New-Object System.Drawing.Size(260, 25)
 $tabHR.Controls.Add($lblGroupsHelp)
 
-Add-FormLabel -Parent $tabHR -Text "Licens" -X 430 -Y 305 | Out-Null
-$cmbLicense = Add-ComboBox -Parent $tabHR -X 560 -Y 303 -Width 250
+Add-FormLabel -Parent $tabHR -Text "Licenser" -X 430 -Y 315 | Out-Null
+
+$clbLicenses = New-Object System.Windows.Forms.CheckedListBox
+$clbLicenses.Location = New-Object System.Drawing.Point(560, 313)
+$clbLicenses.Size = New-Object System.Drawing.Size(250, 55)
+$clbLicenses.CheckOnClick = $true
+$tabHR.Controls.Add($clbLicenses)
 
 $btnPreviewHrData = New-Object System.Windows.Forms.Button
 $btnPreviewHrData.Text = "Förhandsgranska underlag"
-$btnPreviewHrData.Location = New-Object System.Drawing.Point(20, 330)
+$btnPreviewHrData.Location = New-Object System.Drawing.Point(20, 375)
 $btnPreviewHrData.Size = New-Object System.Drawing.Size(190, 40)
 $tabHR.Controls.Add($btnPreviewHrData)
 
 $btnSaveHrData = New-Object System.Windows.Forms.Button
 $btnSaveHrData.Text = "Spara JSON-underlag"
-$btnSaveHrData.Location = New-Object System.Drawing.Point(225, 330)
+$btnSaveHrData.Location = New-Object System.Drawing.Point(225, 375)
 $btnSaveHrData.Size = New-Object System.Drawing.Size(170, 40)
 $tabHR.Controls.Add($btnSaveHrData)
 
 $btnClearHrForm = New-Object System.Windows.Forms.Button
 $btnClearHrForm.Text = "Rensa HR-formulär"
-$btnClearHrForm.Location = New-Object System.Drawing.Point(410, 330)
+$btnClearHrForm.Location = New-Object System.Drawing.Point(410, 375)
 $btnClearHrForm.Size = New-Object System.Drawing.Size(150, 40)
 $tabHR.Controls.Add($btnClearHrForm)
 
@@ -912,7 +931,7 @@ $btnPreviewHrData.Add_Click({
         Write-GuiStatus "Enhet: $($user.unit)"
         Write-GuiStatus "OU: $($user.organizationUnit)"
         Write-GuiStatus "Grupper: $($user.groups -join ', ')"
-        Write-GuiStatus "Licens: $($user.license)"
+        Write-GuiStatus "Licenser: $($user.licenses -join ', ')"
         Write-GuiStatus ""
         Write-GuiStatus "Nästa steg är att spara detta som JSON-underlag till IT."
     }
@@ -960,12 +979,12 @@ $btnClearHrForm.Add_Click({
         Update-ResolvedOuPreview
     }
 
-    if ($cmbLicense.Items.Count -gt 0) {
-        $cmbLicense.SelectedIndex = 0
-    }
-
     for ($i = 0; $i -lt $clbGroups.Items.Count; $i++) {
         $clbGroups.SetItemChecked($i, $false)
+    }
+
+    for ($i = 0; $i -lt $clbLicenses.Items.Count; $i++) {
+        $clbLicenses.SetItemChecked($i, $false)
     }
 
     Clear-GuiStatus
@@ -1214,7 +1233,7 @@ $btnMarkAsProcessed.Add_Click({
 
 $lblStatus = New-Object System.Windows.Forms.Label
 $lblStatus.Text = "Statuslogg:"
-$lblStatus.Location = New-Object System.Drawing.Point(20, 500)
+$lblStatus.Location = New-Object System.Drawing.Point(20, 540)
 $lblStatus.Size = New-Object System.Drawing.Size(840, 20)
 $form.Controls.Add($lblStatus)
 
@@ -1223,8 +1242,8 @@ $txtStatus.Multiline = $true
 $txtStatus.ReadOnly = $true
 $txtStatus.ScrollBars = "Vertical"
 $txtStatus.Font = New-Object System.Drawing.Font("Consolas", 9)
-$txtStatus.Location = New-Object System.Drawing.Point(20, 525)
-$txtStatus.Size = New-Object System.Drawing.Size(840, 180)
+$txtStatus.Location = New-Object System.Drawing.Point(20, 565)
+$txtStatus.Size = New-Object System.Drawing.Size(840, 205)
 $form.Controls.Add($txtStatus)
 
 try {
