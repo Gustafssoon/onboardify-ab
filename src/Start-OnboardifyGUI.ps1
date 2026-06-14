@@ -2082,9 +2082,8 @@ function Set-OnboardifyControlLayout {
 
 function Update-OnboardifyGuiLayout {
     <#
-        Huvudlayouten räknas om efter aktuell skärmstorlek.
+        Huvudlayouten räknas om efter aktuell fönsterstorlek.
         Målet är att:
-        - fönstret använder skärmens arbetsyta
         - flikarna får så mycket yta som möjligt
         - en kompakt statusrad alltid syns längst ned
         - statusloggen kan fällas ut vid behov
@@ -2139,7 +2138,7 @@ function Update-OnboardifyGuiLayout {
     }
 
     $tabsHeight = $form.ClientSize.Height - $tabsTop - $tabsBottomGap - $expandedStatusHeight - $compactStatusHeight - $bottomMargin
-    $tabsHeight = [Math]::Max(280, $tabsHeight)
+    $tabsHeight = [Math]::Max(220, $tabsHeight)
 
     $pnlTabHost.Location = New-Object System.Drawing.Point($margin, $tabsTop)
     $pnlTabHost.Size = New-Object System.Drawing.Size($contentWidth, $tabsHeight)
@@ -2290,7 +2289,22 @@ function Update-OnboardifyTabLayouts {
         $lblITRunInfo.Width = $tabWidth - 40
         $lblItRequestStatus.Width = [Math]::Max(280, $tabWidth - 240)
         $cmbHrRequestFile.Width = [Math]::Max(380, $tabWidth - 300)
-        $tabITRun.AutoScrollMinSize = New-Object System.Drawing.Size(0, 310)
+
+        if ($tabWidth -lt 820) {
+            # På smala fönster bryts åtgärdsknapparna till två rader.
+            Set-OnboardifyControlLayout -Control $btnPreviewHrRequest -X 20 -Y 205 -Width 190 -Height 40
+            Set-OnboardifyControlLayout -Control $btnRunDemoMode -X 225 -Y 205 -Width 160 -Height 40
+            Set-OnboardifyControlLayout -Control $btnMarkAsProcessed -X 20 -Y 260 -Width 190 -Height 40
+            Set-OnboardifyControlLayout -Control $btnRunSharpMode -X 225 -Y 260 -Width 170 -Height 40
+            $tabITRun.AutoScrollMinSize = New-Object System.Drawing.Size(0, 350)
+        }
+        else {
+            Set-OnboardifyControlLayout -Control $btnPreviewHrRequest -X 20 -Y 205 -Width 190 -Height 40
+            Set-OnboardifyControlLayout -Control $btnRunDemoMode -X 225 -Y 205 -Width 160 -Height 40
+            Set-OnboardifyControlLayout -Control $btnMarkAsProcessed -X 400 -Y 205 -Width 190 -Height 40
+            Set-OnboardifyControlLayout -Control $btnRunSharpMode -X 605 -Y 205 -Width 170 -Height 40
+            $tabITRun.AutoScrollMinSize = New-Object System.Drawing.Size(0, 310)
+        }
     }
 }
 
