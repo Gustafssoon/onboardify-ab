@@ -1,6 +1,6 @@
 ﻿# Start-OnboardifyGUI.ps1
 # Enkel WinForms-prototyp för Onboardify AB.
-# GUI:t ska hjälpa både IT och HR utan att lägga AD-logik direkt i formuläret.
+# GUI:t hjälper IT och HR utan att lägga AD-logik direkt i formuläret.
 
 $ErrorActionPreference = "Stop"
 
@@ -62,13 +62,8 @@ function Get-JsonConfig {
 }
 
 function Start-OnboardifyAdScan {
-    <#
-        Kör Onboardifys befintliga AD-skanner.
-
-        GUI:t ska inte själv innehålla AD-logik.
-        Därför importerar vi Onboardify.Discovery.psm1 och anropar
-        Export-OnboardifyADStructure.
-    #>
+    # Kör Onboardifys befintliga AD-skanner.
+    # GUI:t ska inte själv innehålla AD-logik.
 
     $discoveryModule = Join-Path $PSScriptRoot "modules\Onboardify.Discovery.psm1"
 
@@ -84,11 +79,8 @@ function Start-OnboardifyAdScan {
 }
 
 function Get-OnboardifyAdStructure {
-    <#
-        Läser strukturfilen som IT har skapat med AD-skannern.
-
-        Filen innehåller bland annat OU:er och grupper.
-    #>
+    # Läser strukturfilen som IT har skapat med AD-skannern.
+    # Filen innehåller bland annat OU:er och grupper.
 
     if (-not (Test-Path $script:StructurePath)) {
         throw "Strukturfilen finns inte. IT måste köra AD-skannern först."
@@ -101,13 +93,8 @@ function Get-OnboardifyAdStructure {
 }
 
 function Update-HrCustomerOptionLists {
-    <#
-        Fyller dropdowns för titel, avdelning, enhet och licens.
-
-        Titel hämtas från config/titles.sample.json.
-        Licens hämtas från config/licenses.sample.json.
-        Avdelning och enhet hämtas från config/org-structure.sample.json.
-    #>
+    # Fyller dropdowns för titel, avdelning, enhet och licens.
+    # Grupper hämtas separat från AD-strukturen.
 
     $cmbTitle.Items.Clear()
     $cmbDepartment.Items.Clear()
@@ -151,12 +138,12 @@ function Update-HrCustomerOptionLists {
     if ($cmbLicense.Items.Count -gt 0) {
         $cmbLicense.SelectedIndex = 0
     }
+
+    Update-ResolvedOuPreview
 }
 
 function Update-HrUnitList {
-    <#
-        Fyller enhetslistan baserat på vald avdelning.
-    #>
+    # Fyller enhetslistan baserat på vald avdelning.
 
     $cmbUnit.Items.Clear()
 
@@ -187,14 +174,8 @@ function Resolve-OnboardifyOuPath {
         [string]$ConfiguredOu
     )
 
-    <#
-        org-structure.sample.json kan innehålla OU utan DC-del.
-        Exempel:
-        OU=Användare,OU=Utbildningsförvaltningen,...
-
-        AD kräver full DistinguishedName.
-        Därför matchar vi mot AD-strukturen från Discovery och hämtar full OU.
-    #>
+    # org-structure.sample.json kan innehålla OU utan DC-del.
+    # Här matchar vi mot AD-strukturen från Discovery och hämtar full OU.
 
     if ($ConfiguredOu -match ",DC=") {
         return $ConfiguredOu
@@ -224,9 +205,7 @@ function Resolve-OnboardifyOuPath {
 }
 
 function Get-SelectedUnitOu {
-    <#
-        Hämtar rätt OU från vald avdelning och enhet.
-    #>
+    # Hämtar rätt OU från vald avdelning och enhet.
 
     $selectedDepartment = $cmbDepartment.Text
     $selectedUnit = $cmbUnit.Text
@@ -260,16 +239,26 @@ function Get-SelectedUnitOu {
     return Resolve-OnboardifyOuPath -ConfiguredOu $unitConfig.OU
 }
 
+function Update-ResolvedOuPreview {
+    # Visar vilken OU som räknas fram från vald avdelning och enhet.
+
+    try {
+        $resolvedOu = Get-SelectedUnitOu
+        $txtResolvedOu.Text = $resolvedOu
+    }
+    catch {
+        $txtResolvedOu.Text = ""
+    }
+}
+
 function Update-HrGroupList {
     param(
         [Parameter(Mandatory = $true)]
         [PSCustomObject]$Structure
     )
 
-    <#
-        Fyller grupplistan med grupper från AD-strukturen.
-        HR kan välja flera grupper genom checkboxar.
-    #>
+    # Fyller grupplistan med grupper från AD-strukturen.
+    # HR kan välja flera grupper genom checkboxar.
 
     $clbGroups.Items.Clear()
 
@@ -285,25 +274,20 @@ function Update-HrGroupList {
 }
 
 function Update-HrAdStructureLists {
-    <#
-        Läser in AD-strukturen och fyller de fält som kommer från AD.
-        Just nu används den för grupper och för att kunna validera OU.
-    #>
+    # Läser in AD-strukturen och fyller de fält som kommer från AD.
+    # Just nu används den för grupper och för att kunna validera OU.
 
     $script:AdStructure = Get-OnboardifyAdStructure
 
     Update-HrGroupList -Structure $script:AdStructure
+    Update-ResolvedOuPreview
 
     return $script:AdStructure
 }
 
 function New-HrUserPreviewObject {
-    <#
-        Bygger ett PowerShell-objekt av det HR har fyllt i.
-
-        Objektet följer samma grundstruktur som vår JSON/CSV-data
-        och kan sparas som JSON.
-    #>
+    # Bygger ett PowerShell-objekt av det HR har fyllt i.
+    # Objektet sparas sedan som JSON.
 
     $groups = @(
         $clbGroups.CheckedItems |
@@ -831,31 +815,40 @@ $cmbUnit = Add-ComboBox -Parent $tabHR -X 150 -Y 248 -Width 240
 
 $cmbDepartment.Add_SelectedIndexChanged({
     Update-HrUnitList
+    Update-ResolvedOuPreview
+})
+
+$cmbUnit.Add_SelectedIndexChanged({
+    Update-ResolvedOuPreview
 })
 
 # Höger kolumn.
-$lblResolvedOuInfo = New-Object System.Windows.Forms.Label
-$lblResolvedOuInfo.Text = "OU sätts automatiskt från vald avdelning och enhet."
-$lblResolvedOuInfo.Location = New-Object System.Drawing.Point(430, 130)
-$lblResolvedOuInfo.Size = New-Object System.Drawing.Size(380, 25)
-$tabHR.Controls.Add($lblResolvedOuInfo)
+Add-FormLabel -Parent $tabHR -Text "Beräknad OU" -X 430 -Y 130 | Out-Null
 
-Add-FormLabel -Parent $tabHR -Text "Grupper" -X 430 -Y 165 | Out-Null
+$txtResolvedOu = New-Object System.Windows.Forms.TextBox
+$txtResolvedOu.Location = New-Object System.Drawing.Point(560, 128)
+$txtResolvedOu.Size = New-Object System.Drawing.Size(250, 45)
+$txtResolvedOu.Multiline = $true
+$txtResolvedOu.ReadOnly = $true
+$txtResolvedOu.ScrollBars = "Vertical"
+$tabHR.Controls.Add($txtResolvedOu)
+
+Add-FormLabel -Parent $tabHR -Text "Grupper" -X 430 -Y 185 | Out-Null
 
 $clbGroups = New-Object System.Windows.Forms.CheckedListBox
-$clbGroups.Location = New-Object System.Drawing.Point(560, 163)
+$clbGroups.Location = New-Object System.Drawing.Point(560, 183)
 $clbGroups.Size = New-Object System.Drawing.Size(250, 90)
 $clbGroups.CheckOnClick = $true
 $tabHR.Controls.Add($clbGroups)
 
 $lblGroupsHelp = New-Object System.Windows.Forms.Label
 $lblGroupsHelp.Text = "Välj en eller flera grupper från AD-strukturen."
-$lblGroupsHelp.Location = New-Object System.Drawing.Point(560, 255)
+$lblGroupsHelp.Location = New-Object System.Drawing.Point(560, 275)
 $lblGroupsHelp.Size = New-Object System.Drawing.Size(260, 30)
 $tabHR.Controls.Add($lblGroupsHelp)
 
-Add-FormLabel -Parent $tabHR -Text "Licens" -X 430 -Y 285 | Out-Null
-$cmbLicense = Add-ComboBox -Parent $tabHR -X 560 -Y 283 -Width 250
+Add-FormLabel -Parent $tabHR -Text "Licens" -X 430 -Y 305 | Out-Null
+$cmbLicense = Add-ComboBox -Parent $tabHR -X 560 -Y 303 -Width 250
 
 $btnPreviewHrData = New-Object System.Windows.Forms.Button
 $btnPreviewHrData.Text = "Förhandsgranska underlag"
@@ -881,15 +874,17 @@ $btnLoadStructure.Add_Click({
         Write-GuiStatus "Läser in AD-struktur för HR..."
 
         $structure = Update-HrAdStructureLists
+        Update-HrCustomerOptionLists
 
         Write-GuiStatus "AD-struktur inläst."
+        Write-GuiStatus "Kundval inlästa."
         Write-GuiStatus "Strukturfil:"
         Write-GuiStatus $script:StructurePath
         Write-GuiStatus "Skapad: $($structure.generatedAt)"
         Write-GuiStatus "Antal OU:er: $($structure.organizationalUnits.Count)"
         Write-GuiStatus "Antal grupper: $($structure.groups.Count)"
 
-        $lblHrStructureStatus.Text = "Status: AD-struktur inläst. HR kan välja grupper."
+        $lblHrStructureStatus.Text = "Status: AD-struktur inläst. HR kan välja avdelning, enhet och grupper."
     }
     catch {
         Write-GuiStatus "FEL: $($_.Exception.Message)"
@@ -962,6 +957,7 @@ $btnClearHrForm.Add_Click({
     if ($cmbDepartment.Items.Count -gt 0) {
         $cmbDepartment.SelectedIndex = 0
         Update-HrUnitList
+        Update-ResolvedOuPreview
     }
 
     if ($cmbLicense.Items.Count -gt 0) {
