@@ -11,6 +11,7 @@ $OutputEncoding = [System.Text.Encoding]::UTF8
 # Läser in WinForms och Drawing så att vi kan bygga ett Windows-fönster.
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
+[System.Windows.Forms.Application]::EnableVisualStyles()
 
 # Räknar ut projektets rotmapp.
 # Eftersom den här filen ligger i src går vi ett steg upp.
@@ -30,6 +31,11 @@ $script:HrRequestFiles = @()
 $script:DepartmentMap = @{}
 $script:OrgStructure = $null
 $script:AdStructure = $null
+$script:AvailableAdGroups = @()
+$script:AvailableFolderGroups = @()
+$script:ExtraFolderAccessGroups = @()
+$script:AvailableLicenses = @()
+$script:SelectedLicenses = @()
 
 # ------------------------------------------------------------
 # HJÄLPFUNKTIONER
@@ -99,7 +105,6 @@ function Update-HrCustomerOptionLists {
     $cmbTitle.Items.Clear()
     $cmbDepartment.Items.Clear()
     $cmbUnit.Items.Clear()
-    $clbLicenses.Items.Clear()
 
     $script:DepartmentMap = @{}
 
@@ -122,9 +127,13 @@ function Update-HrCustomerOptionLists {
         [void]$cmbDepartment.Items.Add($displayName)
     }
 
-    foreach ($license in @($licenseConfig.Licenser)) {
-        [void]$clbLicenses.Items.Add($license)
-    }
+    $script:AvailableLicenses = @($licenseConfig.Licenser)
+
+    # Tar bort eventuella valda licenser som inte längre finns i configfilen.
+    $script:SelectedLicenses = @(
+        $script:SelectedLicenses |
+            Where-Object { $script:AvailableLicenses -contains $_ }
+    )
 
     if ($cmbTitle.Items.Count -gt 0) {
         $cmbTitle.SelectedIndex = 0
@@ -135,7 +144,96 @@ function Update-HrCustomerOptionLists {
         Update-HrUnitList
     }
 
+    Update-SelectedLicensesText
     Update-ResolvedOuPreview
+}
+
+function Update-SelectedLicensesText {
+    # Visar valda licenser i HR-formuläret.
+
+    if (-not $txtSelectedLicenses) {
+        return
+    }
+
+    if ($script:SelectedLicenses.Count -eq 0) {
+        $txtSelectedLicenses.Text = "Inga licenser valda"
+        return
+    }
+
+    $txtSelectedLicenses.Text = $script:SelectedLicenses -join ", "
+}
+
+function Show-LicenseSelectionDialog {
+    # Öppnar ett separat fönster där HR kan välja flera licenser.
+
+    if ($script:AvailableLicenses.Count -eq 0) {
+        [System.Windows.Forms.MessageBox]::Show(
+            "Inga licenser finns inlästa. Kontrollera config/licenses.sample.json.",
+            "Inga licenser",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Warning
+        ) | Out-Null
+
+        return
+    }
+
+    $dialog = New-Object System.Windows.Forms.Form
+    $dialog.Text = "Välj licenser"
+    $dialog.Size = New-Object System.Drawing.Size(430, 430)
+    $dialog.StartPosition = "CenterParent"
+    $dialog.FormBorderStyle = "FixedDialog"
+    $dialog.MaximizeBox = $false
+    $dialog.MinimizeBox = $false
+
+    $lblInfo = New-Object System.Windows.Forms.Label
+    $lblInfo.Text = "Välj en eller flera licenser för användaren."
+    $lblInfo.Location = New-Object System.Drawing.Point(20, 20)
+    $lblInfo.Size = New-Object System.Drawing.Size(370, 25)
+    $dialog.Controls.Add($lblInfo)
+
+    $licenseList = New-Object System.Windows.Forms.CheckedListBox
+    $licenseList.Location = New-Object System.Drawing.Point(20, 55)
+    $licenseList.Size = New-Object System.Drawing.Size(370, 250)
+    $licenseList.CheckOnClick = $true
+    $dialog.Controls.Add($licenseList)
+
+    foreach ($license in $script:AvailableLicenses) {
+        $index = $licenseList.Items.Add($license)
+
+        if ($script:SelectedLicenses -contains $license) {
+            $licenseList.SetItemChecked($index, $true)
+        }
+    }
+
+    $btnOk = New-Object System.Windows.Forms.Button
+    $btnOk.Text = "OK"
+    $btnOk.Location = New-Object System.Drawing.Point(210, 325)
+    $btnOk.Size = New-Object System.Drawing.Size(80, 35)
+    $btnOk.DialogResult = [System.Windows.Forms.DialogResult]::OK
+    $dialog.Controls.Add($btnOk)
+
+    $btnCancel = New-Object System.Windows.Forms.Button
+    $btnCancel.Text = "Avbryt"
+    $btnCancel.Location = New-Object System.Drawing.Point(310, 325)
+    $btnCancel.Size = New-Object System.Drawing.Size(80, 35)
+    $btnCancel.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+    $dialog.Controls.Add($btnCancel)
+
+    $dialog.AcceptButton = $btnOk
+    $dialog.CancelButton = $btnCancel
+
+    $result = $dialog.ShowDialog($form)
+
+    if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
+        $script:SelectedLicenses = @(
+            $licenseList.CheckedItems |
+                ForEach-Object { $_.ToString() }
+        )
+
+        Update-SelectedLicensesText
+    }
+
+    $dialog.Dispose()
 }
 
 function Update-HrUnitList {
@@ -238,6 +336,10 @@ function Get-SelectedUnitOu {
 function Update-ResolvedOuPreview {
     # Visar vilken OU som räknas fram från vald avdelning och enhet.
 
+    if (-not $txtResolvedOu) {
+        return
+    }
+
     try {
         $resolvedOu = Get-SelectedUnitOu
         $txtResolvedOu.Text = $resolvedOu
@@ -253,20 +355,195 @@ function Update-HrGroupList {
         [PSCustomObject]$Structure
     )
 
-    # Fyller grupplistan med grupper från AD-strukturen.
-    # HR kan välja flera grupper genom checkboxar.
+    # Sparar alla AD-grupper från Discovery.
+    # GR-grupper används automatiskt för roll/licens.
+    # DL-grupper visas som mappbehörigheter.
+    $script:AvailableAdGroups = @(
+        $Structure.groups |
+            ForEach-Object { $_.samAccountName }
+    )
+
+    $script:AvailableFolderGroups = @(
+        $script:AvailableAdGroups |
+            Where-Object { $_ -like "DL *" } |
+            Sort-Object
+    )
+
+    if ($script:AvailableFolderGroups.Count -eq 0) {
+        throw "Inga DL-grupper hittades i AD-strukturen."
+    }
+
+    Update-SuggestedFolderAccessGroups
+}
+
+function Get-FolderAccessGroupPrefix {
+    # Avgör vilka DL-grupper som ska föreslås baserat på vald avdelning.
+
+    switch ($cmbDepartment.Text) {
+        "Kommunledningsförvaltningen" {
+            return "DL Kommunledning"
+        }
+        "Kultur- och fritidsförvaltningen" {
+            return "DL Kultur"
+        }
+        "Samhällsbyggnadsförvaltningen" {
+            return "DL Samhällsbyggnad"
+        }
+        "Socialförvaltningen" {
+            return "DL Social"
+        }
+        "Utbildningsförvaltningen" {
+            return "DL Utbildning"
+        }
+        "Bostäder AB" {
+            return "DL Bostäder"
+        }
+        "Energi AB" {
+            return "DL Energi"
+        }
+        default {
+            return ""
+        }
+    }
+}
+
+function Update-SuggestedFolderAccessGroups {
+    # Visar bara föreslagna mappbehörigheter för vald avdelning.
 
     $clbGroups.Items.Clear()
 
-    $groups = @($Structure.groups)
+    $prefix = Get-FolderAccessGroupPrefix
 
-    if ($groups.Count -eq 0) {
-        throw "Strukturfilen innehåller inga grupper. Kör AD-skannern igen."
+    if ([string]::IsNullOrWhiteSpace($prefix)) {
+        return
     }
 
-    foreach ($group in $groups) {
-        [void]$clbGroups.Items.Add($group.samAccountName)
+    $suggestedGroups = @(
+        $script:AvailableFolderGroups |
+            Where-Object { $_ -like "$prefix *" }
+    )
+
+    foreach ($group in $suggestedGroups) {
+        [void]$clbGroups.Items.Add($group)
     }
+}
+
+function Get-SelectedFolderAccessGroups {
+    # Hämtar valda mappbehörigheter från huvudlistan och extra-dialogen.
+
+    $mainSelected = @(
+        $clbGroups.CheckedItems |
+            ForEach-Object { $_.ToString() }
+    )
+
+    $allSelected = @(
+        $mainSelected + $script:ExtraFolderAccessGroups |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+            Sort-Object -Unique
+    )
+
+    return $allSelected
+}
+
+function Get-AutomaticRoleGroup {
+    # Skapar rollgrupp automatiskt baserat på vald titel.
+    # Exempel: Rektor -> GR Roll Rektor
+
+    $groupName = "GR Roll $($cmbTitle.Text)"
+
+    if ($script:AvailableAdGroups -contains $groupName) {
+        return $groupName
+    }
+
+    return ""
+}
+
+function Get-AutomaticLicenseGroups {
+    # Skapar licensgrupper automatiskt baserat på valda licenser.
+    # Exempel: Microsoft 365 F3 -> GR Licens Microsoft 365 F3
+
+    $licenseGroups = @()
+
+    foreach ($license in @($script:SelectedLicenses)) {
+        $groupName = "GR Licens $license"
+
+        if ($script:AvailableAdGroups -contains $groupName) {
+            $licenseGroups += $groupName
+        }
+    }
+
+    return $licenseGroups
+}
+
+function Show-ExtraFolderAccessDialog {
+    # Visar alla DL-grupper om användaren behöver extra mappbehörigheter.
+
+    if ($script:AvailableFolderGroups.Count -eq 0) {
+        [System.Windows.Forms.MessageBox]::Show(
+            "Läs in AD-strukturen först så att mappbehörigheter kan hämtas.",
+            "Mappbehörigheter saknas",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Information
+        ) | Out-Null
+
+        return
+    }
+
+    $dialog = New-Object System.Windows.Forms.Form
+    $dialog.Text = "Välj extra mappbehörigheter"
+    $dialog.Size = New-Object System.Drawing.Size(440, 460)
+    $dialog.StartPosition = "CenterParent"
+    $dialog.FormBorderStyle = "FixedDialog"
+    $dialog.MaximizeBox = $false
+    $dialog.MinimizeBox = $false
+
+    $lblInfo = New-Object System.Windows.Forms.Label
+    $lblInfo.Text = "Välj extra mappbehörigheter utöver de föreslagna."
+    $lblInfo.Location = New-Object System.Drawing.Point(20, 20)
+    $lblInfo.Size = New-Object System.Drawing.Size(380, 25)
+    $dialog.Controls.Add($lblInfo)
+
+    $folderList = New-Object System.Windows.Forms.CheckedListBox
+    $folderList.Location = New-Object System.Drawing.Point(20, 55)
+    $folderList.Size = New-Object System.Drawing.Size(380, 280)
+    $folderList.CheckOnClick = $true
+    $dialog.Controls.Add($folderList)
+
+    foreach ($group in $script:AvailableFolderGroups) {
+        $index = $folderList.Items.Add($group)
+
+        if ($script:ExtraFolderAccessGroups -contains $group) {
+            $folderList.SetItemChecked($index, $true)
+        }
+    }
+
+    $btnOk = New-Object System.Windows.Forms.Button
+    $btnOk.Text = "OK"
+    $btnOk.Location = New-Object System.Drawing.Point(220, 360)
+    $btnOk.Size = New-Object System.Drawing.Size(80, 35)
+    $btnOk.DialogResult = [System.Windows.Forms.DialogResult]::OK
+    $dialog.Controls.Add($btnOk)
+
+    $btnCancel = New-Object System.Windows.Forms.Button
+    $btnCancel.Text = "Avbryt"
+    $btnCancel.Location = New-Object System.Drawing.Point(320, 360)
+    $btnCancel.Size = New-Object System.Drawing.Size(80, 35)
+    $btnCancel.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+    $dialog.Controls.Add($btnCancel)
+
+    $dialog.AcceptButton = $btnOk
+    $dialog.CancelButton = $btnCancel
+
+    $result = $dialog.ShowDialog($form)
+
+    if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
+        $script:ExtraFolderAccessGroups = @(
+            $folderList.CheckedItems |
+                ForEach-Object { $_.ToString() }
+        )
+    }
+
+    $dialog.Dispose()
 }
 
 function Update-HrAdStructureLists {
@@ -285,28 +562,35 @@ function New-HrUserPreviewObject {
     # Bygger ett PowerShell-objekt av det HR har fyllt i.
     # Objektet sparas sedan som JSON.
 
+    $roleGroup = Get-AutomaticRoleGroup
+    $licenseGroups = @(Get-AutomaticLicenseGroups)
+    $folderAccessGroups = @(Get-SelectedFolderAccessGroups)
+
     $groups = @(
-        $clbGroups.CheckedItems |
-            ForEach-Object { $_.ToString() }
+        @($roleGroup) +
+        $licenseGroups +
+        $folderAccessGroups |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+            Sort-Object -Unique
     )
 
-    $licenses = @(
-        $clbLicenses.CheckedItems |
-            ForEach-Object { $_.ToString() }
-    )
+    $licenses = @($script:SelectedLicenses)
 
     $user = [PSCustomObject]@{
-        firstName        = $txtFirstName.Text.Trim()
-        lastName         = $txtLastName.Text.Trim()
-        title            = $cmbTitle.Text.Trim()
-        department       = $cmbDepartment.Text.Trim()
-        unit             = $cmbUnit.Text.Trim()
-        organizationUnit = Get-SelectedUnitOu
-        groups           = $groups
-        licenses         = $licenses
+        firstName          = $txtFirstName.Text.Trim()
+        lastName           = $txtLastName.Text.Trim()
+        title              = $cmbTitle.Text.Trim()
+        department         = $cmbDepartment.Text.Trim()
+        unit               = $cmbUnit.Text.Trim()
+        organizationUnit   = Get-SelectedUnitOu
+        roleGroup          = $roleGroup
+        licenseGroups      = $licenseGroups
+        folderAccessGroups = $folderAccessGroups
+        groups             = $groups
+        licenses           = $licenses
 
         # Bakåtkompatibelt fält om någon modul fortfarande använder "license".
-        license          = ($licenses -join ", ")
+        license            = ($licenses -join ", ")
     }
 
     return $user
@@ -455,7 +739,17 @@ function Write-HrRequestPreview {
         Write-GuiStatus "Avdelning: $($user.department)"
         Write-GuiStatus "Enhet: $($user.unit)"
         Write-GuiStatus "OU: $($user.organizationUnit)"
-        Write-GuiStatus "Grupper: $groups"
+
+        if ($user.PSObject.Properties.Name -contains "roleGroup") {
+            Write-GuiStatus "Rollgrupp: $($user.roleGroup)"
+            Write-GuiStatus "Licensgrupper: $(@($user.licenseGroups) -join ', ')"
+            Write-GuiStatus "Mappbehörigheter: $(@($user.folderAccessGroups) -join ', ')"
+            Write-GuiStatus "Alla AD-grupper: $groups"
+        }
+        else {
+            Write-GuiStatus "Grupper: $groups"
+        }
+
         Write-GuiStatus "Licenser: $licenseText"
         Write-GuiStatus "------------------------------"
 
@@ -587,11 +881,11 @@ function Test-HrFormInput {
         $missingFields += "Enhet"
     }
 
-    if ($clbGroups.CheckedItems.Count -eq 0) {
-        $missingFields += "Grupper"
+    if ((Get-SelectedFolderAccessGroups).Count -eq 0) {
+        $missingFields += "Mappbehörigheter"
     }
 
-    if ($clbLicenses.CheckedItems.Count -eq 0) {
+    if ($script:SelectedLicenses.Count -eq 0) {
         $missingFields += "Licenser"
     }
 
@@ -686,7 +980,7 @@ function Add-ComboBox {
 
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "Onboardify AB"
-$form.Size = New-Object System.Drawing.Size(900, 820)
+$form.Size = New-Object System.Drawing.Size(900, 880)
 $form.StartPosition = "CenterScreen"
 $form.FormBorderStyle = "FixedDialog"
 $form.MaximizeBox = $false
@@ -707,7 +1001,7 @@ $form.Controls.Add($lblDescription)
 
 $tabs = New-Object System.Windows.Forms.TabControl
 $tabs.Location = New-Object System.Drawing.Point(20, 95)
-$tabs.Size = New-Object System.Drawing.Size(840, 430)
+$tabs.Size = New-Object System.Drawing.Size(840, 470)
 $form.Controls.Add($tabs)
 
 $tabITPrepare = New-Object System.Windows.Forms.TabPage
@@ -830,6 +1124,7 @@ $cmbUnit = Add-ComboBox -Parent $tabHR -X 150 -Y 248 -Width 240
 $cmbDepartment.Add_SelectedIndexChanged({
     Update-HrUnitList
     Update-ResolvedOuPreview
+    Update-SuggestedFolderAccessGroups
 })
 
 $cmbUnit.Add_SelectedIndexChanged({
@@ -847,7 +1142,7 @@ $txtResolvedOu.ReadOnly = $true
 $txtResolvedOu.ScrollBars = "Vertical"
 $tabHR.Controls.Add($txtResolvedOu)
 
-Add-FormLabel -Parent $tabHR -Text "Grupper" -X 430 -Y 195 | Out-Null
+Add-FormLabel -Parent $tabHR -Text "Mappbehörigheter" -X 430 -Y 195 | Out-Null
 
 $clbGroups = New-Object System.Windows.Forms.CheckedListBox
 $clbGroups.Location = New-Object System.Drawing.Point(560, 193)
@@ -856,34 +1151,54 @@ $clbGroups.CheckOnClick = $true
 $tabHR.Controls.Add($clbGroups)
 
 $lblGroupsHelp = New-Object System.Windows.Forms.Label
-$lblGroupsHelp.Text = "Välj en eller flera grupper från AD-strukturen."
+$lblGroupsHelp.Text = "Välj R eller RW för användarens mappåtkomst."
 $lblGroupsHelp.Location = New-Object System.Drawing.Point(560, 280)
 $lblGroupsHelp.Size = New-Object System.Drawing.Size(260, 25)
 $tabHR.Controls.Add($lblGroupsHelp)
 
-Add-FormLabel -Parent $tabHR -Text "Licenser" -X 430 -Y 315 | Out-Null
+$btnExtraFolderAccess = New-Object System.Windows.Forms.Button
+$btnExtraFolderAccess.Text = "Visa fler mappbehörigheter..."
+$btnExtraFolderAccess.Location = New-Object System.Drawing.Point(560, 305)
+$btnExtraFolderAccess.Size = New-Object System.Drawing.Size(250, 28)
+$tabHR.Controls.Add($btnExtraFolderAccess)
 
-$clbLicenses = New-Object System.Windows.Forms.CheckedListBox
-$clbLicenses.Location = New-Object System.Drawing.Point(560, 313)
-$clbLicenses.Size = New-Object System.Drawing.Size(250, 55)
-$clbLicenses.CheckOnClick = $true
-$tabHR.Controls.Add($clbLicenses)
+$btnExtraFolderAccess.Add_Click({
+    Show-ExtraFolderAccessDialog
+})
+
+Add-FormLabel -Parent $tabHR -Text "Licenser" -X 430 -Y 340 | Out-Null
+
+$txtSelectedLicenses = New-Object System.Windows.Forms.TextBox
+$txtSelectedLicenses.Location = New-Object System.Drawing.Point(560, 338)
+$txtSelectedLicenses.Size = New-Object System.Drawing.Size(250, 22)
+$txtSelectedLicenses.ReadOnly = $true
+$tabHR.Controls.Add($txtSelectedLicenses)
+
+$btnSelectLicenses = New-Object System.Windows.Forms.Button
+$btnSelectLicenses.Text = "Välj licenser..."
+$btnSelectLicenses.Location = New-Object System.Drawing.Point(560, 367)
+$btnSelectLicenses.Size = New-Object System.Drawing.Size(250, 28)
+$tabHR.Controls.Add($btnSelectLicenses)
+
+$btnSelectLicenses.Add_Click({
+    Show-LicenseSelectionDialog
+})
 
 $btnPreviewHrData = New-Object System.Windows.Forms.Button
 $btnPreviewHrData.Text = "Förhandsgranska underlag"
-$btnPreviewHrData.Location = New-Object System.Drawing.Point(20, 375)
+$btnPreviewHrData.Location = New-Object System.Drawing.Point(20, 395)
 $btnPreviewHrData.Size = New-Object System.Drawing.Size(190, 40)
 $tabHR.Controls.Add($btnPreviewHrData)
 
 $btnSaveHrData = New-Object System.Windows.Forms.Button
 $btnSaveHrData.Text = "Spara JSON-underlag"
-$btnSaveHrData.Location = New-Object System.Drawing.Point(225, 375)
+$btnSaveHrData.Location = New-Object System.Drawing.Point(225, 395)
 $btnSaveHrData.Size = New-Object System.Drawing.Size(170, 40)
 $tabHR.Controls.Add($btnSaveHrData)
 
 $btnClearHrForm = New-Object System.Windows.Forms.Button
 $btnClearHrForm.Text = "Rensa HR-formulär"
-$btnClearHrForm.Location = New-Object System.Drawing.Point(410, 375)
+$btnClearHrForm.Location = New-Object System.Drawing.Point(410, 395)
 $btnClearHrForm.Size = New-Object System.Drawing.Size(150, 40)
 $tabHR.Controls.Add($btnClearHrForm)
 
@@ -930,7 +1245,10 @@ $btnPreviewHrData.Add_Click({
         Write-GuiStatus "Avdelning: $($user.department)"
         Write-GuiStatus "Enhet: $($user.unit)"
         Write-GuiStatus "OU: $($user.organizationUnit)"
-        Write-GuiStatus "Grupper: $($user.groups -join ', ')"
+        Write-GuiStatus "Rollgrupp: $($user.roleGroup)"
+        Write-GuiStatus "Licensgrupper: $($user.licenseGroups -join ', ')"
+        Write-GuiStatus "Mappbehörigheter: $($user.folderAccessGroups -join ', ')"
+        Write-GuiStatus "Alla AD-grupper: $($user.groups -join ', ')"
         Write-GuiStatus "Licenser: $($user.licenses -join ', ')"
         Write-GuiStatus ""
         Write-GuiStatus "Nästa steg är att spara detta som JSON-underlag till IT."
@@ -983,9 +1301,11 @@ $btnClearHrForm.Add_Click({
         $clbGroups.SetItemChecked($i, $false)
     }
 
-    for ($i = 0; $i -lt $clbLicenses.Items.Count; $i++) {
-        $clbLicenses.SetItemChecked($i, $false)
-    }
+    $script:ExtraFolderAccessGroups = @()
+    Update-SuggestedFolderAccessGroups
+
+    $script:SelectedLicenses = @()
+    Update-SelectedLicensesText
 
     Clear-GuiStatus
     Write-GuiStatus "HR-formuläret har rensats."
@@ -1233,7 +1553,7 @@ $btnMarkAsProcessed.Add_Click({
 
 $lblStatus = New-Object System.Windows.Forms.Label
 $lblStatus.Text = "Statuslogg:"
-$lblStatus.Location = New-Object System.Drawing.Point(20, 540)
+$lblStatus.Location = New-Object System.Drawing.Point(20, 580)
 $lblStatus.Size = New-Object System.Drawing.Size(840, 20)
 $form.Controls.Add($lblStatus)
 
@@ -1242,8 +1562,8 @@ $txtStatus.Multiline = $true
 $txtStatus.ReadOnly = $true
 $txtStatus.ScrollBars = "Vertical"
 $txtStatus.Font = New-Object System.Drawing.Font("Consolas", 9)
-$txtStatus.Location = New-Object System.Drawing.Point(20, 565)
-$txtStatus.Size = New-Object System.Drawing.Size(840, 205)
+$txtStatus.Location = New-Object System.Drawing.Point(20, 605)
+$txtStatus.Size = New-Object System.Drawing.Size(840, 220)
 $form.Controls.Add($txtStatus)
 
 try {
