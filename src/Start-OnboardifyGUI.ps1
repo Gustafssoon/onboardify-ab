@@ -4,6 +4,25 @@
 
 $ErrorActionPreference = "Stop"
 
+# Kontrollerar att GUI:t körs som administratör.
+# Om användaren startar programmet utan adminrättigheter startas samma script om med UAC-ruta.
+$currentIdentity = [Security.Principal.WindowsIdentity]::GetCurrent()
+$currentPrincipal = [Security.Principal.WindowsPrincipal]::new($currentIdentity)
+
+if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    if ([string]::IsNullOrWhiteSpace($PSCommandPath)) {
+        throw "Kunde inte starta om GUI:t som administratör eftersom scriptets sökväg saknas."
+    }
+
+    Start-Process powershell.exe -Verb RunAs -ArgumentList @(
+        "-NoProfile",
+        "-ExecutionPolicy", "Bypass",
+        "-File", "`"$PSCommandPath`""
+    )
+
+    exit
+}
+
 # Ser till att svenska tecken som å, ä och ö visas rätt i terminalen.
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
@@ -12,6 +31,25 @@ $OutputEncoding = [System.Text.Encoding]::UTF8
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 [System.Windows.Forms.Application]::EnableVisualStyles()
+
+if (-not ("Onboardify.NativeMethods" -as [type])) {
+    Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+
+namespace Onboardify {
+    public static class NativeMethods {
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        public static extern IntPtr SendMessage(
+            IntPtr hWnd,
+            int msg,
+            IntPtr wParam,
+            IntPtr lParam
+        );
+    }
+}
+"@
+}
 
 # Räknar ut projektets rotmapp.
 # Eftersom den här filen ligger i src går vi ett steg upp.
@@ -30,11 +68,18 @@ $script:BrandingIconPath = Join-Path $script:RepoRoot "assets\branding\onboardif
 # Enkel Onboardify-profil för ett konsekvent, mörkt gränssnitt.
 $script:Theme = @{
     Background     = [System.Drawing.Color]::FromArgb(10, 25, 47)
-    Surface        = [System.Drawing.Color]::FromArgb(20, 43, 70)
+    Surface        = [System.Drawing.Color]::FromArgb(18, 39, 64)
+    Panel          = [System.Drawing.Color]::FromArgb(24, 49, 77)
+    Input          = [System.Drawing.Color]::FromArgb(220, 231, 240)
+    InputReadOnly  = [System.Drawing.Color]::FromArgb(205, 220, 232)
     Accent         = [System.Drawing.Color]::FromArgb(21, 196, 210)
     AccentDark     = [System.Drawing.Color]::FromArgb(13, 122, 138)
     Text           = [System.Drawing.Color]::FromArgb(245, 248, 252)
     MutedText      = [System.Drawing.Color]::FromArgb(184, 199, 214)
+    InputText      = [System.Drawing.Color]::FromArgb(20, 43, 70)
+    Border         = [System.Drawing.Color]::FromArgb(52, 81, 108)
+    Footer         = [System.Drawing.Color]::FromArgb(14, 32, 54)
+    Secondary      = [System.Drawing.Color]::FromArgb(43, 72, 99)
     Danger         = [System.Drawing.Color]::FromArgb(196, 67, 45)
     Terminal       = [System.Drawing.Color]::FromArgb(5, 15, 28)
     TerminalText   = [System.Drawing.Color]::FromArgb(147, 238, 221)
@@ -145,12 +190,144 @@ function Set-OnboardifyButtonStyle {
     )
 
     $Button.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
-    $Button.FlatAppearance.BorderSize = 1
-    $Button.FlatAppearance.BorderColor = $script:Theme.Accent
+    $Button.FlatAppearance.BorderSize = 0
     $Button.BackColor = $BackColor
     $Button.ForeColor = $script:Theme.Text
     $Button.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $Button.Padding = New-Object System.Windows.Forms.Padding(10, 0, 10, 0)
+    $Button.Cursor = [System.Windows.Forms.Cursors]::Hand
     $Button.UseVisualStyleBackColor = $false
+    $Button.FlatAppearance.MouseOverBackColor = $script:Theme.Accent
+    $Button.FlatAppearance.MouseDownBackColor = $script:Theme.AccentDark
+}
+
+function Set-OnboardifyInputStyle {
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.Windows.Forms.Control]$Control
+    )
+
+    # Håller textfält, listor och dropdowns visuellt enhetliga.
+    $Control.BackColor = $script:Theme.Input
+    $Control.ForeColor = $script:Theme.InputText
+    $Control.Font = New-Object System.Drawing.Font("Segoe UI", 9.5)
+
+    if ($Control.PSObject.Properties.Name -contains "BorderStyle") {
+        $Control.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+    }
+
+    if (($Control -is [System.Windows.Forms.TextBox]) -and $Control.ReadOnly) {
+        $Control.BackColor = $script:Theme.InputReadOnly
+    }
+
+    Set-OnboardifyInputTextInset -Control $Control
+}
+
+function Set-OnboardifyInputTextInset {
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.Windows.Forms.Control]$Control
+    )
+
+    # Ger texten en tydlig vänstermarginal innanför kontrollens egen kant.
+    if ($Control -is [System.Windows.Forms.TextBox]) {
+        $setTextMargin = {
+            param($sender, $eventArgs)
+
+            $leftMargin = 7
+            $rightMargin = 4
+            $margins = $leftMargin -bor ($rightMargin -shl 16)
+            [void][Onboardify.NativeMethods]::SendMessage(
+                $sender.Handle,
+                0x00D3,
+                [IntPtr]3,
+                [IntPtr]$margins
+            )
+        }
+
+        $Control.Add_HandleCreated($setTextMargin)
+
+        if ($Control.IsHandleCreated) {
+            & $setTextMargin $Control $null
+        }
+    }
+    elseif ($Control -is [System.Windows.Forms.ComboBox]) {
+        $Control.DrawMode = [System.Windows.Forms.DrawMode]::OwnerDrawFixed
+        $Control.ItemHeight = 22
+        $Control.Add_DrawItem({
+            param($sender, $eventArgs)
+
+            $eventArgs.DrawBackground()
+            $text = if ($eventArgs.Index -ge 0) {
+                $sender.GetItemText($sender.Items[$eventArgs.Index])
+            }
+            else {
+                $sender.Text
+            }
+
+            $textBounds = New-Object System.Drawing.Rectangle(
+                ($eventArgs.Bounds.X + 7),
+                $eventArgs.Bounds.Y,
+                ([Math]::Max(0, $eventArgs.Bounds.Width - 11)),
+                $eventArgs.Bounds.Height
+            )
+            [System.Windows.Forms.TextRenderer]::DrawText(
+                $eventArgs.Graphics,
+                $text,
+                $sender.Font,
+                $textBounds,
+                $eventArgs.ForeColor,
+                [System.Windows.Forms.TextFormatFlags]::Left -bor
+                    [System.Windows.Forms.TextFormatFlags]::VerticalCenter -bor
+                    [System.Windows.Forms.TextFormatFlags]::EndEllipsis
+            )
+            $eventArgs.DrawFocusRectangle()
+        })
+    }
+}
+
+function New-OnboardifyCard {
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.Windows.Forms.Control]$Parent,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Title
+    )
+
+    # Skapar ett återanvändbart innehållskort med rubrik.
+    $panel = New-Object System.Windows.Forms.Panel
+    $panel.BackColor = $script:Theme.Panel
+    $panel.BorderStyle = [System.Windows.Forms.BorderStyle]::None
+    $panel.Padding = New-Object System.Windows.Forms.Padding(1)
+    $panel.Add_Paint({
+        param($sender, $eventArgs)
+
+        $borderPen = New-Object System.Drawing.Pen($script:Theme.Border)
+        try {
+            $eventArgs.Graphics.DrawRectangle(
+                $borderPen,
+                0,
+                0,
+                ($sender.ClientSize.Width - 1),
+                ($sender.ClientSize.Height - 1)
+            )
+        }
+        finally {
+            $borderPen.Dispose()
+        }
+    })
+
+    $titleLabel = New-Object System.Windows.Forms.Label
+    $titleLabel.Text = $Title
+    $titleLabel.Font = New-Object System.Drawing.Font("Segoe UI Semibold", 11)
+    $titleLabel.ForeColor = $script:Theme.Text
+    $titleLabel.Location = New-Object System.Drawing.Point(18, 14)
+    $titleLabel.Size = New-Object System.Drawing.Size(320, 26)
+    $panel.Controls.Add($titleLabel)
+    $Parent.Controls.Add($panel)
+
+    return $panel
 }
 
 function Get-JsonConfig {
@@ -283,6 +460,9 @@ function Show-LicenseSelectionDialog {
     $dialog.FormBorderStyle = "FixedDialog"
     $dialog.MaximizeBox = $false
     $dialog.MinimizeBox = $false
+    $dialog.BackColor = $script:Theme.Surface
+    $dialog.ForeColor = $script:Theme.Text
+    $dialog.Font = New-Object System.Drawing.Font("Segoe UI", 9)
 
     $lblInfo = New-Object System.Windows.Forms.Label
     $lblInfo.Text = "Välj en eller flera licenser för användaren."
@@ -294,6 +474,7 @@ function Show-LicenseSelectionDialog {
     $licenseList.Location = New-Object System.Drawing.Point(20, 55)
     $licenseList.Size = New-Object System.Drawing.Size(370, 250)
     $licenseList.CheckOnClick = $true
+    Set-OnboardifyInputStyle -Control $licenseList
     $dialog.Controls.Add($licenseList)
 
     foreach ($license in $script:AvailableLicenses) {
@@ -309,6 +490,7 @@ function Show-LicenseSelectionDialog {
     $btnOk.Location = New-Object System.Drawing.Point(210, 325)
     $btnOk.Size = New-Object System.Drawing.Size(80, 35)
     $btnOk.DialogResult = [System.Windows.Forms.DialogResult]::OK
+    Set-OnboardifyButtonStyle -Button $btnOk
     $dialog.Controls.Add($btnOk)
 
     $btnCancel = New-Object System.Windows.Forms.Button
@@ -316,6 +498,7 @@ function Show-LicenseSelectionDialog {
     $btnCancel.Location = New-Object System.Drawing.Point(310, 325)
     $btnCancel.Size = New-Object System.Drawing.Size(80, 35)
     $btnCancel.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+    Set-OnboardifyButtonStyle -Button $btnCancel -BackColor $script:Theme.Border
     $dialog.Controls.Add($btnCancel)
 
     $dialog.AcceptButton = $btnOk
@@ -595,6 +778,9 @@ function Show-ExtraFolderAccessDialog {
     $dialog.FormBorderStyle = "FixedDialog"
     $dialog.MaximizeBox = $false
     $dialog.MinimizeBox = $false
+    $dialog.BackColor = $script:Theme.Surface
+    $dialog.ForeColor = $script:Theme.Text
+    $dialog.Font = New-Object System.Drawing.Font("Segoe UI", 9)
 
     $lblInfo = New-Object System.Windows.Forms.Label
     $lblInfo.Text = "Välj extra mappbehörigheter utöver de föreslagna."
@@ -606,6 +792,7 @@ function Show-ExtraFolderAccessDialog {
     $folderList.Location = New-Object System.Drawing.Point(20, 55)
     $folderList.Size = New-Object System.Drawing.Size(380, 280)
     $folderList.CheckOnClick = $true
+    Set-OnboardifyInputStyle -Control $folderList
     $dialog.Controls.Add($folderList)
 
     foreach ($group in $script:AvailableFolderGroups) {
@@ -621,6 +808,7 @@ function Show-ExtraFolderAccessDialog {
     $btnOk.Location = New-Object System.Drawing.Point(220, 360)
     $btnOk.Size = New-Object System.Drawing.Size(80, 35)
     $btnOk.DialogResult = [System.Windows.Forms.DialogResult]::OK
+    Set-OnboardifyButtonStyle -Button $btnOk
     $dialog.Controls.Add($btnOk)
 
     $btnCancel = New-Object System.Windows.Forms.Button
@@ -628,6 +816,7 @@ function Show-ExtraFolderAccessDialog {
     $btnCancel.Location = New-Object System.Drawing.Point(320, 360)
     $btnCancel.Size = New-Object System.Drawing.Size(80, 35)
     $btnCancel.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+    Set-OnboardifyButtonStyle -Button $btnCancel -BackColor $script:Theme.Border
     $dialog.Controls.Add($btnCancel)
 
     $dialog.AcceptButton = $btnOk
@@ -1021,6 +1210,8 @@ function Add-FormLabel {
 
     $label = New-Object System.Windows.Forms.Label
     $label.Text = $Text
+    $label.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+    $label.ForeColor = $script:Theme.MutedText
     $label.Location = New-Object System.Drawing.Point($X, $Y)
     $label.Size = New-Object System.Drawing.Size(130, 22)
     $Parent.Controls.Add($label)
@@ -1044,7 +1235,8 @@ function Add-TextBox {
 
     $textBox = New-Object System.Windows.Forms.TextBox
     $textBox.Location = New-Object System.Drawing.Point($X, $Y)
-    $textBox.Size = New-Object System.Drawing.Size($Width, 22)
+    $textBox.Size = New-Object System.Drawing.Size($Width, 28)
+    Set-OnboardifyInputStyle -Control $textBox
     $Parent.Controls.Add($textBox)
 
     return $textBox
@@ -1066,8 +1258,10 @@ function Add-ComboBox {
 
     $comboBox = New-Object System.Windows.Forms.ComboBox
     $comboBox.Location = New-Object System.Drawing.Point($X, $Y)
-    $comboBox.Size = New-Object System.Drawing.Size($Width, 22)
+    $comboBox.Size = New-Object System.Drawing.Size($Width, 28)
     $comboBox.DropDownStyle = "DropDownList"
+    $comboBox.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    Set-OnboardifyInputStyle -Control $comboBox
     $Parent.Controls.Add($comboBox)
 
     return $comboBox
@@ -1124,27 +1318,82 @@ $lblDescription.Size = New-Object System.Drawing.Size(770, 24)
 $lblDescription.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Right
 $form.Controls.Add($lblDescription)
 
+$pnlTabHost = New-Object System.Windows.Forms.Panel
+$pnlTabHost.Location = New-Object System.Drawing.Point(20, 85)
+$pnlTabHost.Size = New-Object System.Drawing.Size(840, 470)
+$pnlTabHost.BackColor = $script:Theme.Border
+$form.Controls.Add($pnlTabHost)
+
 $tabs = New-Object System.Windows.Forms.TabControl
-$tabs.Location = New-Object System.Drawing.Point(20, 85)
-$tabs.Size = New-Object System.Drawing.Size(840, 470)
-$tabs.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Right
+$tabs.Location = New-Object System.Drawing.Point(-4, -4)
+$tabs.Size = New-Object System.Drawing.Size(848, 478)
 $tabs.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
-$form.Controls.Add($tabs)
+$tabs.DrawMode = [System.Windows.Forms.TabDrawMode]::OwnerDrawFixed
+$tabs.SizeMode = [System.Windows.Forms.TabSizeMode]::Fixed
+$tabs.ItemSize = New-Object System.Drawing.Size(190, 42)
+$tabs.Padding = New-Object System.Drawing.Point(18, 6)
+$tabs.BackColor = $script:Theme.Background
+$tabs.Add_DrawItem({
+    param($sender, $eventArgs)
+
+    $isSelected = $eventArgs.Index -eq $sender.SelectedIndex
+    $background = if ($isSelected) { $script:Theme.AccentDark } else { $script:Theme.Surface }
+    $foreground = $script:Theme.Text
+    $bounds = New-Object System.Drawing.Rectangle(
+        ($eventArgs.Bounds.X - 1),
+        ($eventArgs.Bounds.Y - 1),
+        ($eventArgs.Bounds.Width + 2),
+        ($eventArgs.Bounds.Height + 2)
+    )
+
+    $backgroundBrush = New-Object System.Drawing.SolidBrush($background)
+    try {
+        $eventArgs.Graphics.FillRectangle($backgroundBrush, $bounds)
+    }
+    finally {
+        $backgroundBrush.Dispose()
+    }
+
+    $textBounds = New-Object System.Drawing.Rectangle(
+        ($bounds.X + 10),
+        $bounds.Y,
+        ($bounds.Width - 20),
+        $bounds.Height
+    )
+    [System.Windows.Forms.TextRenderer]::DrawText(
+        $eventArgs.Graphics,
+        $sender.TabPages[$eventArgs.Index].Text,
+        $sender.Font,
+        $textBounds,
+        $foreground,
+        [System.Windows.Forms.TextFormatFlags]::HorizontalCenter -bor
+            [System.Windows.Forms.TextFormatFlags]::VerticalCenter -bor
+            [System.Windows.Forms.TextFormatFlags]::EndEllipsis
+    )
+})
+$pnlTabHost.Controls.Add($tabs)
+
+$pnlTabDivider = New-Object System.Windows.Forms.Panel
+$pnlTabDivider.BackColor = $script:Theme.Border
+$pnlTabDivider.Location = New-Object System.Drawing.Point(0, 39)
+$pnlTabDivider.Size = New-Object System.Drawing.Size(840, 2)
+$pnlTabHost.Controls.Add($pnlTabDivider)
+$pnlTabDivider.BringToFront()
 
 $tabITPrepare = New-Object System.Windows.Forms.TabPage
-$tabITPrepare.Text = "IT - Förbered"
+$tabITPrepare.Text = "1. IT - Förbered"
 $tabITPrepare.AutoScroll = $true
 $tabITPrepare.BackColor = $script:Theme.Surface
 $tabITPrepare.ForeColor = $script:Theme.Text
 
 $tabHR = New-Object System.Windows.Forms.TabPage
-$tabHR.Text = "HR - Underlag"
+$tabHR.Text = "2. HR - Underlag"
 $tabHR.AutoScroll = $true
 $tabHR.BackColor = $script:Theme.Surface
 $tabHR.ForeColor = $script:Theme.Text
 
 $tabITRun = New-Object System.Windows.Forms.TabPage
-$tabITRun.Text = "IT - Kör onboarding"
+$tabITRun.Text = "3. IT - Kör onboarding"
 $tabITRun.AutoScroll = $true
 $tabITRun.BackColor = $script:Theme.Surface
 $tabITRun.ForeColor = $script:Theme.Text
@@ -1243,21 +1492,25 @@ $lblHrStructureStatus.Location = New-Object System.Drawing.Point(200, 82)
 $lblHrStructureStatus.Size = New-Object System.Drawing.Size(580, 25)
 $tabHR.Controls.Add($lblHrStructureStatus)
 
-# Vänster kolumn.
-Add-FormLabel -Parent $tabHR -Text "Förnamn" -X 20 -Y 130 | Out-Null
-$txtFirstName = Add-TextBox -Parent $tabHR -X 150 -Y 128 -Width 240
+# Två kort skiljer HR-underlaget från de tekniska valen.
+$pnlHrForm = New-OnboardifyCard -Parent $tabHR -Title "HR-underlag"
+$pnlHrAccess = New-OnboardifyCard -Parent $tabHR -Title "Placering och åtkomst"
 
-Add-FormLabel -Parent $tabHR -Text "Efternamn" -X 20 -Y 160 | Out-Null
-$txtLastName = Add-TextBox -Parent $tabHR -X 150 -Y 158 -Width 240
+# Vänster kort.
+Add-FormLabel -Parent $pnlHrForm -Text "Förnamn" -X 18 -Y 58 | Out-Null
+$txtFirstName = Add-TextBox -Parent $pnlHrForm -X 145 -Y 54 -Width 240
 
-Add-FormLabel -Parent $tabHR -Text "Titel" -X 20 -Y 190 | Out-Null
-$cmbTitle = Add-ComboBox -Parent $tabHR -X 150 -Y 188 -Width 240
+Add-FormLabel -Parent $pnlHrForm -Text "Efternamn" -X 18 -Y 98 | Out-Null
+$txtLastName = Add-TextBox -Parent $pnlHrForm -X 145 -Y 94 -Width 240
 
-Add-FormLabel -Parent $tabHR -Text "Avdelning" -X 20 -Y 220 | Out-Null
-$cmbDepartment = Add-ComboBox -Parent $tabHR -X 150 -Y 218 -Width 240
+Add-FormLabel -Parent $pnlHrForm -Text "Titel" -X 18 -Y 138 | Out-Null
+$cmbTitle = Add-ComboBox -Parent $pnlHrForm -X 145 -Y 134 -Width 240
 
-Add-FormLabel -Parent $tabHR -Text "Enhet" -X 20 -Y 250 | Out-Null
-$cmbUnit = Add-ComboBox -Parent $tabHR -X 150 -Y 248 -Width 240
+Add-FormLabel -Parent $pnlHrForm -Text "Avdelning" -X 18 -Y 178 | Out-Null
+$cmbDepartment = Add-ComboBox -Parent $pnlHrForm -X 145 -Y 174 -Width 240
+
+Add-FormLabel -Parent $pnlHrForm -Text "Enhet" -X 18 -Y 218 | Out-Null
+$cmbUnit = Add-ComboBox -Parent $pnlHrForm -X 145 -Y 214 -Width 240
 
 $cmbDepartment.Add_SelectedIndexChanged({
     Update-HrUnitList
@@ -1269,54 +1522,61 @@ $cmbUnit.Add_SelectedIndexChanged({
     Update-ResolvedOuPreview
 })
 
-# Höger kolumn.
-Add-FormLabel -Parent $tabHR -Text "Beräknad OU" -X 430 -Y 130 | Out-Null
+# Höger kort.
+Add-FormLabel -Parent $pnlHrAccess -Text "Beräknad OU" -X 18 -Y 58 | Out-Null
 
 $txtResolvedOu = New-Object System.Windows.Forms.TextBox
-$txtResolvedOu.Location = New-Object System.Drawing.Point(560, 128)
+$txtResolvedOu.Location = New-Object System.Drawing.Point(145, 54)
 $txtResolvedOu.Size = New-Object System.Drawing.Size(250, 55)
 $txtResolvedOu.Multiline = $true
 $txtResolvedOu.ReadOnly = $true
 $txtResolvedOu.ScrollBars = "Vertical"
-$tabHR.Controls.Add($txtResolvedOu)
+$txtResolvedOu.WordWrap = $true
+Set-OnboardifyInputStyle -Control $txtResolvedOu
+$pnlHrAccess.Controls.Add($txtResolvedOu)
 
-Add-FormLabel -Parent $tabHR -Text "Mappbehörigheter" -X 430 -Y 195 | Out-Null
+Add-FormLabel -Parent $pnlHrAccess -Text "Mappbehörigheter" -X 18 -Y 126 | Out-Null
 
 $clbGroups = New-Object System.Windows.Forms.CheckedListBox
-$clbGroups.Location = New-Object System.Drawing.Point(560, 193)
+$clbGroups.Location = New-Object System.Drawing.Point(145, 122)
 $clbGroups.Size = New-Object System.Drawing.Size(250, 85)
 $clbGroups.CheckOnClick = $true
-$tabHR.Controls.Add($clbGroups)
+Set-OnboardifyInputStyle -Control $clbGroups
+$pnlHrAccess.Controls.Add($clbGroups)
 
 $lblGroupsHelp = New-Object System.Windows.Forms.Label
 $lblGroupsHelp.Text = "Välj R eller RW för användarens mappåtkomst."
-$lblGroupsHelp.Location = New-Object System.Drawing.Point(560, 280)
+$lblGroupsHelp.Location = New-Object System.Drawing.Point(145, 210)
 $lblGroupsHelp.Size = New-Object System.Drawing.Size(260, 25)
-$tabHR.Controls.Add($lblGroupsHelp)
+$lblGroupsHelp.ForeColor = $script:Theme.MutedText
+$pnlHrAccess.Controls.Add($lblGroupsHelp)
 
 $btnExtraFolderAccess = New-Object System.Windows.Forms.Button
 $btnExtraFolderAccess.Text = "Visa fler mappbehörigheter..."
-$btnExtraFolderAccess.Location = New-Object System.Drawing.Point(560, 305)
+$btnExtraFolderAccess.Location = New-Object System.Drawing.Point(145, 236)
 $btnExtraFolderAccess.Size = New-Object System.Drawing.Size(250, 28)
-$tabHR.Controls.Add($btnExtraFolderAccess)
+Set-OnboardifyButtonStyle -Button $btnExtraFolderAccess -BackColor $script:Theme.Secondary
+$pnlHrAccess.Controls.Add($btnExtraFolderAccess)
 
 $btnExtraFolderAccess.Add_Click({
     Show-ExtraFolderAccessDialog
 })
 
-Add-FormLabel -Parent $tabHR -Text "Licenser" -X 430 -Y 340 | Out-Null
+Add-FormLabel -Parent $pnlHrAccess -Text "Licenser" -X 18 -Y 282 | Out-Null
 
 $txtSelectedLicenses = New-Object System.Windows.Forms.TextBox
-$txtSelectedLicenses.Location = New-Object System.Drawing.Point(560, 338)
+$txtSelectedLicenses.Location = New-Object System.Drawing.Point(145, 278)
 $txtSelectedLicenses.Size = New-Object System.Drawing.Size(250, 22)
 $txtSelectedLicenses.ReadOnly = $true
-$tabHR.Controls.Add($txtSelectedLicenses)
+Set-OnboardifyInputStyle -Control $txtSelectedLicenses
+$pnlHrAccess.Controls.Add($txtSelectedLicenses)
 
 $btnSelectLicenses = New-Object System.Windows.Forms.Button
 $btnSelectLicenses.Text = "Välj licenser..."
-$btnSelectLicenses.Location = New-Object System.Drawing.Point(560, 367)
+$btnSelectLicenses.Location = New-Object System.Drawing.Point(145, 310)
 $btnSelectLicenses.Size = New-Object System.Drawing.Size(250, 28)
-$tabHR.Controls.Add($btnSelectLicenses)
+Set-OnboardifyButtonStyle -Button $btnSelectLicenses -BackColor $script:Theme.Secondary
+$pnlHrAccess.Controls.Add($btnSelectLicenses)
 
 $btnSelectLicenses.Add_Click({
     Show-LicenseSelectionDialog
@@ -1326,6 +1586,7 @@ $btnPreviewHrData = New-Object System.Windows.Forms.Button
 $btnPreviewHrData.Text = "Förhandsgranska underlag"
 $btnPreviewHrData.Location = New-Object System.Drawing.Point(20, 395)
 $btnPreviewHrData.Size = New-Object System.Drawing.Size(190, 40)
+Set-OnboardifyButtonStyle -Button $btnPreviewHrData -BackColor $script:Theme.Border
 $tabHR.Controls.Add($btnPreviewHrData)
 
 $btnSaveHrData = New-Object System.Windows.Forms.Button
@@ -1339,6 +1600,7 @@ $btnClearHrForm = New-Object System.Windows.Forms.Button
 $btnClearHrForm.Text = "Rensa HR-formulär"
 $btnClearHrForm.Location = New-Object System.Drawing.Point(410, 395)
 $btnClearHrForm.Size = New-Object System.Drawing.Size(150, 40)
+Set-OnboardifyButtonStyle -Button $btnClearHrForm -BackColor $script:Theme.Border
 $tabHR.Controls.Add($btnClearHrForm)
 
 $btnLoadStructure.Add_Click({
@@ -1489,12 +1751,15 @@ $cmbHrRequestFile = New-Object System.Windows.Forms.ComboBox
 $cmbHrRequestFile.Location = New-Object System.Drawing.Point(120, 152)
 $cmbHrRequestFile.Size = New-Object System.Drawing.Size(520, 22)
 $cmbHrRequestFile.DropDownStyle = "DropDownList"
+$cmbHrRequestFile.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+Set-OnboardifyInputStyle -Control $cmbHrRequestFile
 $tabITRun.Controls.Add($cmbHrRequestFile)
 
 $btnPreviewHrRequest = New-Object System.Windows.Forms.Button
 $btnPreviewHrRequest.Text = "Förhandsgranska HR-fil"
 $btnPreviewHrRequest.Location = New-Object System.Drawing.Point(20, 205)
 $btnPreviewHrRequest.Size = New-Object System.Drawing.Size(190, 40)
+Set-OnboardifyButtonStyle -Button $btnPreviewHrRequest -BackColor $script:Theme.Border
 $tabITRun.Controls.Add($btnPreviewHrRequest)
 
 $btnRunDemoMode = New-Object System.Windows.Forms.Button
@@ -1508,6 +1773,7 @@ $btnMarkAsProcessed = New-Object System.Windows.Forms.Button
 $btnMarkAsProcessed.Text = "Markera som behandlad"
 $btnMarkAsProcessed.Location = New-Object System.Drawing.Point(400, 205)
 $btnMarkAsProcessed.Size = New-Object System.Drawing.Size(190, 40)
+Set-OnboardifyButtonStyle -Button $btnMarkAsProcessed -BackColor $script:Theme.Border
 $tabITRun.Controls.Add($btnMarkAsProcessed)
 
 $btnRunSharpMode = New-Object System.Windows.Forms.Button
@@ -1694,19 +1960,23 @@ $btnMarkAsProcessed.Add_Click({
 # STATUSLOGG
 # ------------------------------------------------------------
 
+$pnlFooter = New-Object System.Windows.Forms.Panel
+$pnlFooter.BackColor = $script:Theme.Footer
+$form.Controls.Add($pnlFooter)
+
 $lblCompactStatus = New-Object System.Windows.Forms.Label
 $lblCompactStatus.Text = "Status: Redo"
 $lblCompactStatus.Font = New-Object System.Drawing.Font("Segoe UI", 9)
 $lblCompactStatus.ForeColor = $script:Theme.MutedText
 $lblCompactStatus.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
 $lblCompactStatus.AutoEllipsis = $true
-$form.Controls.Add($lblCompactStatus)
+$pnlFooter.Controls.Add($lblCompactStatus)
 
 $btnToggleStatusLog = New-Object System.Windows.Forms.Button
 $btnToggleStatusLog.Text = "Visa logg ▲"
 $btnToggleStatusLog.Size = New-Object System.Drawing.Size(125, 30)
-Set-OnboardifyButtonStyle -Button $btnToggleStatusLog
-$form.Controls.Add($btnToggleStatusLog)
+Set-OnboardifyButtonStyle -Button $btnToggleStatusLog -BackColor $script:Theme.Secondary
+$pnlFooter.Controls.Add($btnToggleStatusLog)
 
 $lblStatus = New-Object System.Windows.Forms.Label
 $lblStatus.Text = "Statuslogg:"
@@ -1857,26 +2127,38 @@ function Update-OnboardifyGuiLayout {
     $tabsHeight = $form.ClientSize.Height - $tabsTop - $tabsBottomGap - $expandedStatusHeight - $compactStatusHeight - $bottomMargin
     $tabsHeight = [Math]::Max(280, $tabsHeight)
 
-    $tabs.Location = New-Object System.Drawing.Point($margin, $tabsTop)
-    $tabs.Size = New-Object System.Drawing.Size($contentWidth, $tabsHeight)
+    $pnlTabHost.Location = New-Object System.Drawing.Point($margin, $tabsTop)
+    $pnlTabHost.Size = New-Object System.Drawing.Size($contentWidth, $tabsHeight)
+    $tabs.Location = New-Object System.Drawing.Point(-4, -4)
+    $tabs.Size = New-Object System.Drawing.Size(($contentWidth + 8), ($tabsHeight + 8))
+    $pnlTabDivider.Location = New-Object System.Drawing.Point(0, 39)
+    $pnlTabDivider.Size = New-Object System.Drawing.Size($contentWidth, 2)
+    $pnlTabDivider.BringToFront()
+    $tabs.ItemSize = New-Object System.Drawing.Size(
+        ([Math]::Max(160, [int](($tabs.ClientSize.Width - 8) / 3))),
+        42
+    )
 
     $compactStatusTop = $form.ClientSize.Height - $bottomMargin - $compactStatusHeight
     $toggleButtonWidth = 125
     $toggleGap = 12
 
-    $lblCompactStatus.Location = New-Object System.Drawing.Point($margin, $compactStatusTop)
+    $pnlFooter.Location = New-Object System.Drawing.Point($margin, $compactStatusTop)
+    $pnlFooter.Size = New-Object System.Drawing.Size($contentWidth, $compactStatusHeight)
+
+    $lblCompactStatus.Location = New-Object System.Drawing.Point(12, 0)
     $lblCompactStatus.Size = New-Object System.Drawing.Size(
-        ([Math]::Max(300, $contentWidth - $toggleButtonWidth - $toggleGap)),
+        ([Math]::Max(300, $contentWidth - $toggleButtonWidth - $toggleGap - 12)),
         $compactStatusHeight
     )
 
     $btnToggleStatusLog.Location = New-Object System.Drawing.Point(
-        ($margin + $contentWidth - $toggleButtonWidth),
-        $compactStatusTop
+        ($contentWidth - $toggleButtonWidth),
+        0
     )
 
     if ($script:IsStatusLogExpanded) {
-        $lblStatus.Location = New-Object System.Drawing.Point($margin, ($tabs.Bottom + $tabsBottomGap))
+        $lblStatus.Location = New-Object System.Drawing.Point($margin, ($pnlTabHost.Bottom + $tabsBottomGap))
         $lblStatus.Size = New-Object System.Drawing.Size($contentWidth, $statusLabelHeight)
 
         $txtStatusTop = $lblStatus.Bottom + $statusGap
@@ -1914,9 +2196,7 @@ function Update-OnboardifyTabLayouts {
 
     # HR - Underlag
     if ($tabHR) {
-        # Normal laptop/RDP-bredd använder två kolumner. Endast mycket smala fönster
-        # växlar till en kolumn med scroll som fallback.
-        $isNarrow = $tabWidth -lt 800
+        $isNarrow = $tabWidth -lt 900
         $innerMargin = 30
 
         $lblHR.Location = New-Object System.Drawing.Point($innerMargin, 20)
@@ -1929,107 +2209,64 @@ function Update-OnboardifyTabLayouts {
         Set-OnboardifyControlLayout -Control $lblHrStructureStatus -X 220 -Y 88 -Width ([Math]::Max(280, $tabWidth - 250)) -Height 25
 
         if ($isNarrow) {
-            # Smal layout: en kolumn med scroll.
-            # Detta används på mindre skärmar så att inget trycks ut åt höger.
-            $labelX = $innerMargin
-            $controlX = 170
-            $controlWidth = [Math]::Max(360, $tabWidth - $controlX - 45)
-            $rightLabelX = $innerMargin
-            $rightControlX = 170
-            $rightControlWidth = $controlWidth
+            # På smala skärmar staplas korten och fliken får egen scroll.
+            $cardWidth = [Math]::Max(560, $tabWidth - 60)
+            Set-OnboardifyControlLayout -Control $pnlHrForm -X $innerMargin -Y 132 -Width $cardWidth -Height 370
+            Set-OnboardifyControlLayout -Control $pnlHrAccess -X $innerMargin -Y 518 -Width $cardWidth -Height 370
 
-            Set-OnboardifyLabelLayout -Parent $tabHR -Text "Förnamn" -X $labelX -Y 135 -Width 120
-            Set-OnboardifyControlLayout -Control $txtFirstName -X $controlX -Y 132 -Width $controlWidth -Height 24
+            $controlWidth = [Math]::Max(300, $cardWidth - 185)
+            Set-OnboardifyControlLayout -Control $txtFirstName -X 145 -Y 54 -Width $controlWidth -Height 28
+            Set-OnboardifyControlLayout -Control $txtLastName -X 145 -Y 94 -Width $controlWidth -Height 28
+            Set-OnboardifyControlLayout -Control $cmbTitle -X 145 -Y 134 -Width $controlWidth -Height 28
+            Set-OnboardifyControlLayout -Control $cmbDepartment -X 145 -Y 174 -Width $controlWidth -Height 28
+            Set-OnboardifyControlLayout -Control $cmbUnit -X 145 -Y 214 -Width $controlWidth -Height 28
 
-            Set-OnboardifyLabelLayout -Parent $tabHR -Text "Efternamn" -X $labelX -Y 170 -Width 120
-            Set-OnboardifyControlLayout -Control $txtLastName -X $controlX -Y 167 -Width $controlWidth -Height 24
+            Set-OnboardifyControlLayout -Control $txtResolvedOu -X 145 -Y 54 -Width $controlWidth -Height 68
+            Set-OnboardifyControlLayout -Control $clbGroups -X 145 -Y 136 -Width $controlWidth -Height 82
+            Set-OnboardifyLabelLayout -Parent $pnlHrAccess -Text "Mappbehörigheter" -X 18 -Y 140 -Width 125
+            $lblGroupsHelp.Location = New-Object System.Drawing.Point(145, 222)
+            $lblGroupsHelp.Size = New-Object System.Drawing.Size($controlWidth, 22)
+            Set-OnboardifyControlLayout -Control $btnExtraFolderAccess -X 145 -Y 246 -Width $controlWidth -Height 32
+            Set-OnboardifyLabelLayout -Parent $pnlHrAccess -Text "Licenser" -X 18 -Y 294 -Width 125
+            Set-OnboardifyControlLayout -Control $txtSelectedLicenses -X 145 -Y 290 -Width $controlWidth -Height 28
+            Set-OnboardifyControlLayout -Control $btnSelectLicenses -X 145 -Y 326 -Width $controlWidth -Height 32
 
-            Set-OnboardifyLabelLayout -Parent $tabHR -Text "Titel" -X $labelX -Y 205 -Width 120
-            Set-OnboardifyControlLayout -Control $cmbTitle -X $controlX -Y 202 -Width $controlWidth -Height 24
-
-            Set-OnboardifyLabelLayout -Parent $tabHR -Text "Avdelning" -X $labelX -Y 240 -Width 120
-            Set-OnboardifyControlLayout -Control $cmbDepartment -X $controlX -Y 237 -Width $controlWidth -Height 24
-
-            Set-OnboardifyLabelLayout -Parent $tabHR -Text "Enhet" -X $labelX -Y 275 -Width 120
-            Set-OnboardifyControlLayout -Control $cmbUnit -X $controlX -Y 272 -Width $controlWidth -Height 24
-
-            Set-OnboardifyLabelLayout -Parent $tabHR -Text "Beräknad OU" -X $rightLabelX -Y 325 -Width 120
-            Set-OnboardifyControlLayout -Control $txtResolvedOu -X $rightControlX -Y 322 -Width $rightControlWidth -Height 60
-
-            Set-OnboardifyLabelLayout -Parent $tabHR -Text "Mappbehörigheter" -X $rightLabelX -Y 400 -Width 130
-            Set-OnboardifyControlLayout -Control $clbGroups -X $rightControlX -Y 397 -Width $rightControlWidth -Height 95
-
-            $lblGroupsHelp.Location = New-Object System.Drawing.Point($rightControlX, 497)
-            $lblGroupsHelp.Size = New-Object System.Drawing.Size($rightControlWidth, 22)
-
-            Set-OnboardifyControlLayout -Control $btnExtraFolderAccess -X $rightControlX -Y 523 -Width $rightControlWidth -Height 30
-
-            Set-OnboardifyLabelLayout -Parent $tabHR -Text "Licenser" -X $rightLabelX -Y 572 -Width 120
-            Set-OnboardifyControlLayout -Control $txtSelectedLicenses -X $rightControlX -Y 569 -Width $rightControlWidth -Height 24
-            Set-OnboardifyControlLayout -Control $btnSelectLicenses -X $rightControlX -Y 601 -Width $rightControlWidth -Height 30
-
-            Set-OnboardifyControlLayout -Control $btnPreviewHrData -X $innerMargin -Y 655 -Width 210 -Height 42
-            Set-OnboardifyControlLayout -Control $btnSaveHrData -X 255 -Y 655 -Width 190 -Height 42
-            Set-OnboardifyControlLayout -Control $btnClearHrForm -X 465 -Y 655 -Width 170 -Height 42
-
-            $tabHR.AutoScrollMinSize = New-Object System.Drawing.Size(0, 735)
+            $actionButtonsY = 904
+            Set-OnboardifyControlLayout -Control $btnPreviewHrData -X $innerMargin -Y $actionButtonsY -Width 210 -Height 40
+            Set-OnboardifyControlLayout -Control $btnSaveHrData -X 255 -Y $actionButtonsY -Width 190 -Height 40
+            Set-OnboardifyControlLayout -Control $btnClearHrForm -X 465 -Y $actionButtonsY -Width 170 -Height 40
+            $tabHR.AutoScrollMinSize = New-Object System.Drawing.Size(0, 970)
         }
         else {
-            # Bred layout: personuppgifter till vänster och tekniska val till höger.
-            $formStartY = 132
-            $rowGap = 32
-            $labelOffsetY = 3
-            $leftLabelX = $innerMargin
-            $leftControlX = 145
-            $rightLabelX = [Math]::Max(400, [int]($tabWidth * 0.46))
-            $rightControlX = $rightLabelX + 125
-            $rightControlWidth = [Math]::Max(240, $tabWidth - $rightControlX - 30)
-            $leftControlWidth = [Math]::Min(420, [Math]::Max(220, $rightLabelX - $leftControlX - 25))
+            # Normal layout: två jämnstora kort med en tydlig luftspalt.
+            $cardGap = 18
+            $cardWidth = [int](($tabWidth - ($innerMargin * 2) - $cardGap) / 2)
+            $rightCardX = $innerMargin + $cardWidth + $cardGap
+            Set-OnboardifyControlLayout -Control $pnlHrForm -X $innerMargin -Y 132 -Width $cardWidth -Height 370
+            Set-OnboardifyControlLayout -Control $pnlHrAccess -X $rightCardX -Y 132 -Width $cardWidth -Height 370
 
-            Set-OnboardifyLabelLayout -Parent $tabHR -Text "Förnamn" -X $leftLabelX -Y ($formStartY + $labelOffsetY) -Width 105
-            Set-OnboardifyControlLayout -Control $txtFirstName -X $leftControlX -Y $formStartY -Width $leftControlWidth -Height 24
+            $controlWidth = [Math]::Max(190, $cardWidth - 175)
+            Set-OnboardifyControlLayout -Control $txtFirstName -X 145 -Y 54 -Width $controlWidth -Height 28
+            Set-OnboardifyControlLayout -Control $txtLastName -X 145 -Y 94 -Width $controlWidth -Height 28
+            Set-OnboardifyControlLayout -Control $cmbTitle -X 145 -Y 134 -Width $controlWidth -Height 28
+            Set-OnboardifyControlLayout -Control $cmbDepartment -X 145 -Y 174 -Width $controlWidth -Height 28
+            Set-OnboardifyControlLayout -Control $cmbUnit -X 145 -Y 214 -Width $controlWidth -Height 28
 
-            Set-OnboardifyLabelLayout -Parent $tabHR -Text "Efternamn" -X $leftLabelX -Y ($formStartY + $rowGap + $labelOffsetY) -Width 105
-            Set-OnboardifyControlLayout -Control $txtLastName -X $leftControlX -Y ($formStartY + $rowGap) -Width $leftControlWidth -Height 24
+            Set-OnboardifyControlLayout -Control $txtResolvedOu -X 145 -Y 54 -Width $controlWidth -Height 68
+            Set-OnboardifyControlLayout -Control $clbGroups -X 145 -Y 136 -Width $controlWidth -Height 82
+            Set-OnboardifyLabelLayout -Parent $pnlHrAccess -Text "Mappbehörigheter" -X 18 -Y 140 -Width 125
+            $lblGroupsHelp.Location = New-Object System.Drawing.Point(145, 222)
+            $lblGroupsHelp.Size = New-Object System.Drawing.Size($controlWidth, 22)
+            Set-OnboardifyControlLayout -Control $btnExtraFolderAccess -X 145 -Y 246 -Width $controlWidth -Height 32
+            Set-OnboardifyLabelLayout -Parent $pnlHrAccess -Text "Licenser" -X 18 -Y 294 -Width 125
+            Set-OnboardifyControlLayout -Control $txtSelectedLicenses -X 145 -Y 290 -Width $controlWidth -Height 28
+            Set-OnboardifyControlLayout -Control $btnSelectLicenses -X 145 -Y 326 -Width $controlWidth -Height 32
 
-            Set-OnboardifyLabelLayout -Parent $tabHR -Text "Titel" -X $leftLabelX -Y ($formStartY + ($rowGap * 2) + $labelOffsetY) -Width 105
-            Set-OnboardifyControlLayout -Control $cmbTitle -X $leftControlX -Y ($formStartY + ($rowGap * 2)) -Width $leftControlWidth -Height 24
-
-            Set-OnboardifyLabelLayout -Parent $tabHR -Text "Avdelning" -X $leftLabelX -Y ($formStartY + ($rowGap * 3) + $labelOffsetY) -Width 105
-            Set-OnboardifyControlLayout -Control $cmbDepartment -X $leftControlX -Y ($formStartY + ($rowGap * 3)) -Width $leftControlWidth -Height 24
-
-            Set-OnboardifyLabelLayout -Parent $tabHR -Text "Enhet" -X $leftLabelX -Y ($formStartY + ($rowGap * 4) + $labelOffsetY) -Width 105
-            Set-OnboardifyControlLayout -Control $cmbUnit -X $leftControlX -Y ($formStartY + ($rowGap * 4)) -Width $leftControlWidth -Height 24
-
-            # Tekniska val börjar i linje med första personuppgiftsraden.
-            $groupStartY = $formStartY + 45
-            $licenseStartY = $formStartY + 153
-            $actionButtonsY = $formStartY + 190
-
-            Set-OnboardifyLabelLayout -Parent $tabHR -Text "Beräknad OU" -X $rightLabelX -Y ($formStartY + $labelOffsetY) -Width 115
-            Set-OnboardifyControlLayout -Control $txtResolvedOu -X $rightControlX -Y $formStartY -Width $rightControlWidth -Height 38
-
-            Set-OnboardifyLabelLayout -Parent $tabHR -Text "Mappbehörigheter" -X $rightLabelX -Y ($groupStartY + $labelOffsetY) -Width 115
-            Set-OnboardifyControlLayout -Control $clbGroups -X $rightControlX -Y $groupStartY -Width $rightControlWidth -Height 55
-
-            $lblGroupsHelp.Location = New-Object System.Drawing.Point($rightControlX, ($groupStartY + 57))
-            $lblGroupsHelp.Size = New-Object System.Drawing.Size($rightControlWidth, 18)
-
-            Set-OnboardifyControlLayout -Control $btnExtraFolderAccess -X $rightControlX -Y ($groupStartY + 78) -Width $rightControlWidth -Height 26
-
-            $licenseFieldWidth = [Math]::Max(120, [int](($rightControlWidth - 8) * 0.55))
-            $licenseButtonX = $rightControlX + $licenseFieldWidth + 8
-            $licenseButtonWidth = $rightControlWidth - $licenseFieldWidth - 8
-
-            Set-OnboardifyLabelLayout -Parent $tabHR -Text "Licenser" -X $rightLabelX -Y ($licenseStartY + $labelOffsetY) -Width 115
-            Set-OnboardifyControlLayout -Control $txtSelectedLicenses -X $rightControlX -Y $licenseStartY -Width $licenseFieldWidth -Height 24
-            Set-OnboardifyControlLayout -Control $btnSelectLicenses -X $licenseButtonX -Y $licenseStartY -Width $licenseButtonWidth -Height 24
-
-            Set-OnboardifyControlLayout -Control $btnPreviewHrData -X $innerMargin -Y $actionButtonsY -Width 195 -Height 34
-            Set-OnboardifyControlLayout -Control $btnSaveHrData -X 240 -Y $actionButtonsY -Width 175 -Height 34
-            Set-OnboardifyControlLayout -Control $btnClearHrForm -X 430 -Y $actionButtonsY -Width 155 -Height 34
-
-            $tabHR.AutoScrollMinSize = New-Object System.Drawing.Size(0, ($actionButtonsY + 45))
+            $actionButtonsY = 514
+            Set-OnboardifyControlLayout -Control $btnPreviewHrData -X $innerMargin -Y $actionButtonsY -Width 210 -Height 40
+            Set-OnboardifyControlLayout -Control $btnSaveHrData -X 255 -Y $actionButtonsY -Width 190 -Height 40
+            Set-OnboardifyControlLayout -Control $btnClearHrForm -X 465 -Y $actionButtonsY -Width 170 -Height 40
+            $tabHR.AutoScrollMinSize = New-Object System.Drawing.Size(0, 565)
         }
     }
 
