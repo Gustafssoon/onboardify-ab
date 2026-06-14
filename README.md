@@ -59,6 +59,12 @@ Allt loggas
 
 ---
 
+## Starta GUI
+
+Dubbelklicka på `Start-OnboardifyGUI.vbs` i repo-roten för att starta GUI:t utan ett synligt CMD-fönster.
+
+---
+
 ## Snabb demo
 
 Kör onboarding-flödet utan att skapa något i Active Directory eller på filservern:
