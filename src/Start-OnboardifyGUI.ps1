@@ -14,11 +14,24 @@ if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Adm
         throw "Kunde inte starta om GUI:t som administratör eftersom scriptets sökväg saknas."
     }
 
-    Start-Process powershell.exe -Verb RunAs -ArgumentList @(
-        "-NoProfile",
-        "-ExecutionPolicy", "Bypass",
-        "-File", "`"$PSCommandPath`""
-    )
+    try {
+        Start-Process powershell.exe -Verb RunAs -WindowStyle Hidden -ArgumentList @(
+            "-NoProfile",
+            "-STA",
+            "-WindowStyle", "Hidden",
+            "-ExecutionPolicy", "Bypass",
+            "-File", "`"$PSCommandPath`""
+        )
+    }
+    catch {
+        Add-Type -AssemblyName System.Windows.Forms
+        [System.Windows.Forms.MessageBox]::Show(
+            "Onboardify GUI kunde inte startas som administratör.`n`n$($_.Exception.Message)",
+            "Onboardify AB",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Error
+        ) | Out-Null
+    }
 
     exit
 }
@@ -1087,6 +1100,7 @@ function Invoke-OnboardifyMode {
     $processInfo.RedirectStandardError = $true
     $processInfo.UseShellExecute = $false
     $processInfo.CreateNoWindow = $true
+    $processInfo.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
 
     $process = New-Object System.Diagnostics.Process
     $process.StartInfo = $processInfo
@@ -1275,21 +1289,21 @@ $form = New-Object System.Windows.Forms.Form
 Set-OnboardifyWindowIcon -Form $form
 
 $form.Text = "Onboardify AB"
-$form.StartPosition = "Manual"
+$form.StartPosition = "CenterScreen"
 $form.FormBorderStyle = "Sizable"
 $form.MaximizeBox = $true
 $form.MinimizeBox = $true
-$form.MinimumSize = New-Object System.Drawing.Size(800, 600)
 $form.AutoScroll = $false
 $form.BackColor = $script:Theme.Background
 $form.ForeColor = $script:Theme.Text
 $form.Font = New-Object System.Drawing.Font("Segoe UI", 9)
 
-# Starta fönstret i hela skärmens arbetsyta.
-# Detta beter sig som maximerat läge, men undviker att statusloggen hamnar bakom aktivitetsfältet
-# på små laptopskärmar eller i VM/RDP.
+# Normal standardstorlek och minimumstorlek; mindre skärmar får en storlek inom arbetsytan.
 $workingArea = [System.Windows.Forms.Screen]::PrimaryScreen.WorkingArea
-$form.Bounds = $workingArea
+$defaultWidth = [Math]::Min(1100, [Math]::Max(800, $workingArea.Width - 40))
+$defaultHeight = [Math]::Min(750, [Math]::Max(600, $workingArea.Height - 40))
+$form.Size = New-Object System.Drawing.Size($defaultWidth, $defaultHeight)
+$form.MinimumSize = New-Object System.Drawing.Size(800, 600)
 
 $picBrandIcon = New-Object System.Windows.Forms.PictureBox
 $picBrandIcon.Location = New-Object System.Drawing.Point(20, 12)
