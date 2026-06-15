@@ -11,7 +11,7 @@ $OutputEncoding = [System.Text.Encoding]::UTF8
 # VARIABLER.
 
 # Här sparas root-mappen för repot och loggmappar.
-$script:RepoRoot = Split-Path -Path $PSScriptRoot -Parent -Parent
+$script:RepoRoot = Split-Path -Path (Split-Path -Path $PSScriptRoot -Parent) -Parent
 $script:LogFolder = Join-Path -Path $script:RepoRoot -ChildPath 'Logs'
 
 # Här sparas sökvägen till loggfilen.
@@ -89,7 +89,7 @@ function Write-OnboardifyLog {
     # så försäkrar detta att den startas automatiskt. 
     # Kollar både Logfile och LogFolder.
     if ($null -eq $script:LogFile -or $null -eq $script:LogFolder) {
-    Initialize-OnboardifyLog
+        Initialize-OnboardifyLog
     }
 
     # Skapar en loggrad med tid, nivå och meddelande.
@@ -125,28 +125,27 @@ function Write-OnboardifyLog {
         return
     }
 
-    # Visar loggen i konsolen med färger.
-    switch ($Level) {
+    # Visar loggen i konsolen/GUI med färger.
+     switch ($Level) {
 
         "INFO" {
-            Write-Host $JsonLog -ForegroundColor White
+            Write-Host $Message -ForegroundColor White
         }
 
         "OK" {
-            Write-Host $JsonLog -ForegroundColor Green
+            Write-Host $Message -ForegroundColor Green
         }
 
         "VARNING" {
-            Write-Host $JsonLog -ForegroundColor Yellow
+            Write-Host $Message -ForegroundColor Yellow
         }
 
         "FEL" {
-            Write-Host $JsonLog -ForegroundColor Red
+            Write-Host $Message -ForegroundColor Red
         }
 
-        # Om något annat används.
         default {
-            Write-Host $JsonLog
+            Write-Host $Message
         }
     }
 }
