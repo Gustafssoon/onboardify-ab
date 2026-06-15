@@ -93,3 +93,89 @@ Läs här:
 ```text
 docs/GIT_WORKFLOW.md
 ```
+---
+
+# Använda Onboardify GUI
+
+Denna guide beskriver det normala arbetsflödet där IT först skannar Active Directory, HR skapar onboardingunderlag och IT därefter genomför onboarding av användaren.
+
+## 1. Starta GUI:t
+
+1. Starta Onboardify GUI.
+2. Verktyget begär administratörsbehörighet vid uppstart.
+3. Klicka på **Ja** för att fortsätta.
+
+## 2. Skanna Active Directory
+
+1. Klicka på **Scan AD**.
+2. Verktyget läser in Active Directory-strukturen.
+3. En JSON-fil skapas som innehåller:
+
+   * OU-struktur
+   * Grupper
+   * Avdelningar
+   * Licenser
+
+Denna fil används som underlag för onboarding-processen.
+
+## 3. Skapa HR-underlag
+
+1. Ladda in den skapade JSON-filen.
+
+2. Fyll i:
+
+   * Förnamn
+   * Efternamn
+   * Titel
+   * Avdelning
+   * Organisation eller skola
+   * Licenser
+
+3. Spara onboardingförfrågan.
+
+Förfrågan sparas och kan senare hanteras av IT.
+
+## 4. Granska onboardingförfrågan
+
+IT laddar in väntande onboardingförfrågningar och granskar:
+
+* Användarnamn
+* Organisation
+* OU
+* Grupper
+* Licenser
+* Behörigheter
+
+## 5. Kör onboarding
+
+### Demo Mode
+
+Används för testning och verifiering.
+
+Ingen användare skapas i Active Directory.
+
+### Skarpt läge
+
+Skapar användaren i Active Directory.
+
+Följande kan skapas:
+
+* AD-användare
+* Gruppmedlemskap
+* Licenstilldelningar
+* Hemkatalog
+* Behörigheter
+
+## 6. Kontrollera resultat
+
+Efter körningen kan IT verifiera att:
+
+* användaren har skapats
+* rätt OU används
+* rätt grupper har tilldelats
+* licenser har lagts till
+* loggar har skapats
+
+## 7. Loggning
+
+Alla körningar loggas och kan granskas i efterhand för felsökning och uppföljning.
