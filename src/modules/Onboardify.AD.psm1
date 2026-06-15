@@ -440,6 +440,8 @@ function New-OnboardifyADUser {
             EmailAddress      = $emailAddress
             Path              = $User.organizationUnit
             Name              = "$($User.firstName) $($User.lastName)"
+            Title             = $User.title
+            Department        = $User.department
         }
 
         # Skapar användaren i AD.
@@ -447,7 +449,22 @@ function New-OnboardifyADUser {
             -AccountPassword (ConvertTo-SecureString $password -AsPlainText -Force) `
             -Enabled $true `
             -ErrorAction Stop
+        
+        #Logging för Titel och Department
+        if (-not [string]::IsNullOrWhiteSpace($User.title)) {
+        Write-Host "Titel satt till: $($User.title)" -ForegroundColor Green
+        }
+        else {
+        Write-Host "Ingen titel angiven" -ForegroundColor DarkGray
+        }
 
+        if (-not [string]::IsNullOrWhiteSpace($User.department)) {
+        Write-Host "Avdelning satt till: $($User.department)" -ForegroundColor Green
+        }
+        else {
+        Write-Host "Ingen avdelning angiven" -ForegroundColor DarkGray
+        }
+        
         # Lägger användaren i grupper efter att kontot skapats.
         foreach ($group in @($User.groups)) {
             Add-ADGroupMember `
