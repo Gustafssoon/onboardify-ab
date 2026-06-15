@@ -72,10 +72,15 @@ function Write-OnboardifyLog {
 
     param(
 
-        # Meddelandet som ska loggas.
+        # Meddelandet som ska visas och loggas
+        # Mandatory = måste alltid skickas in
+        # ValidateNotNullOrEmpty = får inte vara tomt
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
         [string]$Message,
 
-        # Typ av logg (INFO, OK, VARNING, FEL).
+        # Loggnivå som beskriver typ av händelse
+        # ValidateSet begränsar till dessa fyra värden
         [ValidateSet("INFO","OK","VARNING","FEL")]
         [string]$Level = "INFO"
     )
