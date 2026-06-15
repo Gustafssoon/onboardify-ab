@@ -10,8 +10,9 @@ $OutputEncoding = [System.Text.Encoding]::UTF8
 
 # VARIABLER.
 
-# Här sparas mappen där loggar ska ligga.
-$script:LogFolder = "C:\Logs"
+# Här sparas root-mappen för repot och loggmappar.
+$script:RepoRoot = Split-Path -Path $PSScriptRoot -Parent -Parent
+$script:LogFolder = Join-Path -Path $script:RepoRoot -ChildPath 'Logs'
 
 # Här sparas sökvägen till loggfilen.
 $script:LogFile = $null
@@ -22,7 +23,7 @@ function Initialize-OnboardifyLog {
 
     param(
         # Här kan man välja egen mapp för loggar.
-        [string]$Path = "C:\Logs"
+        [string]$Path = $script:LogFolder
     )
 
     # Försöker utföra hela logginitieringen

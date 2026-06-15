@@ -4,6 +4,16 @@ Snabbguide för hur loggar används vid felsökning.
 
 ---
 
+## Vart loggarna placeras
+
+Loggarna placeras:
+
+* i den rootmapp där scriptet körs
+* där skapas mappen "Logs"
+* loggarna placeras i mappen "Logs"
+
+---
+
 ## Vad loggarna visar
 
 Loggarna visar:
