@@ -12,7 +12,7 @@ $OutputEncoding = [System.Text.Encoding]::UTF8
 
 # Här sparas root-mappen för repot och loggmappar.
 $script:RepoRoot = Split-Path -Path $PSScriptRoot -Parent -Parent
-$script:LogFolder = Join-Path -Path $script:RepoRoot -ChildPath 'LOGS'
+$script:LogFolder = Join-Path -Path $script:RepoRoot -ChildPath 'Logs'
 
 # Här sparas sökvägen till loggfilen.
 $script:LogFile = $null
