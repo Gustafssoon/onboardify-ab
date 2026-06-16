@@ -464,22 +464,22 @@ function New-OnboardifyADUser {
             -AccountPassword (ConvertTo-SecureString $password -AsPlainText -Force) `
             -Enabled $true `
             -ErrorAction Stop
-        
-        #Logging för Titel och Department
+
+        # Logging för Titel och Department.
         if (-not [string]::IsNullOrWhiteSpace($User.title)) {
-        Write-Host "Titel satt till: $($User.title)" -ForegroundColor Green
+            Write-Host "Titel satt till: $($User.title)" -ForegroundColor Green
         }
         else {
-        Write-Host "Ingen titel angiven" -ForegroundColor DarkGray
+            Write-Host "Ingen titel angiven" -ForegroundColor DarkGray
         }
 
         if (-not [string]::IsNullOrWhiteSpace($User.department)) {
-        Write-Host "Avdelning satt till: $($User.department)" -ForegroundColor Green
+            Write-Host "Avdelning satt till: $($User.department)" -ForegroundColor Green
         }
         else {
-        Write-Host "Ingen avdelning angiven" -ForegroundColor DarkGray
+            Write-Host "Ingen avdelning angiven" -ForegroundColor DarkGray
         }
-        
+
         # Lägger användaren i grupper efter att kontot skapats.
         foreach ($group in @($User.groups)) {
             Add-ADGroupMember `
@@ -488,9 +488,9 @@ function New-OnboardifyADUser {
                 -ErrorAction Stop
         }
 
-        # Spara lösenordet krypterat på den lokala värden.
+        # Spara lösenordet krypterat för den användare som kör scriptet.
         $securePassword = ConvertTo-SecureString $password -AsPlainText -Force
-        $encryptedPassword = $securePassword | ConvertFrom-SecureString -Scope LocalMachine
+        $encryptedPassword = $securePassword | ConvertFrom-SecureString
         $passwordPath = Get-OnboardifyEncryptedPasswordPath -Username $username
         New-Item -ItemType Directory -Path (Split-Path $passwordPath) -Force | Out-Null
         Set-Content -Path $passwordPath -Value $encryptedPassword -NoNewline

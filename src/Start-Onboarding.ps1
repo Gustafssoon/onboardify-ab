@@ -1,4 +1,4 @@
-# Tar emot sökvägen till datafilen som parameter när scriptet körs.
+﻿# Tar emot sökvägen till datafilen som parameter när scriptet körs.
 # DemoMode gör att scriptet bara visar vad som skulle göras, utan att skapa användare eller mappar.
 param(
     [Parameter(Mandatory = $true)]

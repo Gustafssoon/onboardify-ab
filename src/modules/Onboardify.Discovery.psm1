@@ -1,4 +1,4 @@
-# Onboardify.Discovery.psm1
+﻿# Onboardify.Discovery.psm1
 
 
 # Modul för att läsa av befintlig AD-struktur.
