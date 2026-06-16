@@ -68,9 +68,29 @@ try {
         Write-OnboardifyLog -Message "[DEMO] Demomode aktiverat inga användare eller mappar skapas" -Level INFO
     }
 
+    # Hittar projektroten.
+    # Scriptet ligger i src, därför går vi en nivå upp till repo-roten.
+    $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+
+    # Läser in grundsökväg för hemkataloger från config.
+    # Detta gör att vi slipper hårdkoda exempelvis \\fileserver\users i scriptet.
+    $homeFolderConfigPath = Join-Path $RepoRoot "config\homefolder.sample.json"
+
+    if (-not (Test-Path $homeFolderConfigPath)) {
+        throw "Config-fil för hemkatalog saknas: $homeFolderConfigPath"
+    }
+
+    $homeFolderConfig = Get-Content -Path $homeFolderConfigPath -Raw | ConvertFrom-Json
+    $homeFolderRoot = $homeFolderConfig.homeFolderRoot
+
+    if ([string]::IsNullOrWhiteSpace($homeFolderRoot)) {
+        throw "homeFolderRoot saknas i config\homefolder.sample.json"
+    }
+
+    Write-OnboardifyLog -Message "Hemkatalog-root: $homeFolderRoot" -Level INFO
+
     # Om ingen sökväg anges sparas/läses AD-strukturen från config-mappen.
     if ([string]::IsNullOrWhiteSpace($StructurePath)) {
-        $RepoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
         $StructurePath = Join-Path $RepoRoot "config\ad-structure.generated.json"
     }
 
@@ -139,7 +159,8 @@ try {
 
         # Hemkatalog ska byggas av det användarnamn scriptet faktiskt använder.
         # HR ska alltså inte behöva skriva homeFolder i JSON-filen.
-        $homeFolder = "\\fileserver\users\$username"
+        # Grundsökvägen hämtas från config/homefolder.sample.json.
+        $homeFolder = Join-Path $homeFolderRoot $username
 
         if ($DemoMode) {
             # I DemoMode loggar vi bara vad scriptet skulle ha gjort.
@@ -159,7 +180,8 @@ try {
             $username = New-OnboardifyADUser -User $user
 
             # Bygger hemkatalogen från det returnerade användarnamnet.
-            $homeFolder = "\\fileserver\users\$username"
+            # Grundsökvägen hämtas från config/homefolder.sample.json.
+            $homeFolder = Join-Path $homeFolderRoot $username
 
             # Skapar hemkatalog med samma användarnamn som AD-kontot.
             New-OnboardifyHomeFolder -HomeFolder $homeFolder
