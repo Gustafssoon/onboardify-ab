@@ -256,3 +256,130 @@
 * Fortsätta verifiera att hela onboarding-flödet fungerar som en helhet.
 * Fokusera på de sista förbättringarna och eventuella buggrättningar inför projektets avslutning.
 * Fortsätta dokumentera upptäckta problem och förbättringsförslag löpande.
+
+---
+
+  # Daily Standup – 2026-06-16
+
+## Vad har vi gjort sedan förra mötet?
+
+### Ali
+
+* Dokumenterat Daily Standup och Retrospektiv från 2026-06-15.
+* Uppdaterat projektets dokumentation.
+* Arbetat med Issue #137 – Dokumentera hur GUI:t används.
+* Lagt till GUI-guide i GET_STARTED.md.
+* Skapat Pull Request för Issue #137 och skickat den för granskning.
+* Fått Pull Request godkänd.
+* Förberett underlag inför Sprint Review.
+
+### Gabriel
+
+* Granskat gruppens Pull Requests.
+* Testat onboarding-flödet med den senaste koden.
+* Identifierat och åtgärdat ett problem där Scope-parametern i den krypterade lösenordskonfigurationen orsakade fel vid onboarding.
+* Verifierat att onboarding-flödet fungerar efter korrigeringen.
+* Felsökt och färdigställt hemkatalogsfunktionen.
+* Integrerat lösningen i huvudscriptet.
+* Fortsatt verifiering och testning av onboarding-flödet.
+
+### Martin
+
+* Arbetat med Issue #138 – Hantera genererat lösenord säkrare i output.
+* Implementerat logik för att lagra genererade lösenord på ett säkrare sätt genom kryptering och filhantering.
+* Påbörjat verifiering av lösningen.
+* Identifierat att ytterligare testning krävs för att säkerställa att lösenord hanteras korrekt genom hela onboarding-flödet.
+
+### Zahra
+
+* Har tidigare färdigställt Issue #124 – Lägg till fler licensval i HR-formuläret.
+* Deltog inte på dagens möte.
+
+### Micael
+
+* Arbetat med Issue #145 – Spike: Förbättring av loggningsfunktioner.
+* Undersökt hur loggmeddelanden kan förenklas i GUI samtidigt som JSON-loggning bibehålls.
+* Påbörjat verifiering av att loggfunktionen fungerar korrekt i både Demo Mode och testmiljö.
+* Fortsatt arbetet med Issue #121 – Spara Title och Department på AD-användaren.
+
+---
+
+## Vad ska vi göra tills nästa möte?
+
+### Ali
+
+* Dokumentera dagens Daily Standup.
+* Dokumentera dagens Retrospektiv.
+* Dokumentera Sprint Review för Sprint 4.
+* Uppdatera Sprintplanering 4 med eventuella ändringar från Sprint Review.
+
+### Gabriel
+
+* Fortsätta verifiera onboarding-flödet.
+* Testa den senaste koden i huvudscriptet.
+* Följa upp eventuella återstående buggar.
+
+### Martin
+
+* Fortsätta verifiera lösningen för säker hantering av lösenord.
+* Testa att lösenord genereras, krypteras och sparas korrekt genom hela onboarding-flödet.
+
+### Micael
+
+* Fortsätta arbetet med loggningsfunktionen.
+* Verifiera att ändringarna fungerar utan att påverka befintlig funktionalitet.
+
+### Gruppen
+
+* Förbereda slutredovisningen.
+* Säkerställa att alla sprintuppgifter är dokumenterade och avslutade.
+
+---
+
+## Finns det några hinder eller problem?
+
+### Ali
+
+* Inga hinder eller problem rapporterade.
+
+### Gabriel
+
+* Inga blockerande problem rapporterade.
+
+### Martin
+
+* Ytterligare testning krävs för att verifiera den nya lösningen för lösenordshantering.
+
+### Micael
+
+* Inga blockerande problem rapporterade.
+
+### Zahra
+
+* Ej närvarande.
+
+---
+
+  # Retrospektiv – 2026-06-16
+
+## Vad fungerade bra idag?
+
+* Gruppen har färdigställt majoriteten av Sprint 4:s uppgifter.
+* GUI:t har utvecklats till en mer användarvänlig och professionell lösning.
+* Onboarding-flödet fungerar i stort sett enligt plan.
+* Gruppen har arbetat seriöst enligt Scrum och ITIL under projektet.
+* Trots frånvaro under delar av projektet har gruppen lyckats färdigställa lösningen.
+* Samarbetet kring testning, kodgranskning och dokumentation har fungerat bra.
+
+## Vad fungerade mindre bra idag?
+
+* Flera gruppmedlemmar har varit frånvarande under delar av Sprint 3 och Sprint 4.
+* Vissa funktioner har krävt mer felsökning än förväntat.
+* Testning i VM-miljö har ibland fördröjt arbetet.
+
+## Vad ska vi förbättra till imorgon?
+
+* Förbereda och genomföra slutredovisningen.
+* Säkerställa att all dokumentation är uppdaterad.
+* Slutföra eventuella sista förbättringar och buggrättningar.
+* Säkerställa att alla issues är korrekt hanterade inför projektets avslut.
