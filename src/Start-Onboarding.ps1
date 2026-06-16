@@ -1,4 +1,4 @@
-﻿# Tar emot sökvägen till datafilen som parameter när scriptet körs.
+# Tar emot sökvägen till datafilen som parameter när scriptet körs.
 # DemoMode gör att scriptet bara visar vad som skulle göras, utan att skapa användare eller mappar.
 param(
     [Parameter(Mandatory = $true)]
@@ -61,11 +61,11 @@ try {
     }
 
     # Startar onboarding-flödet.
-    Write-OnboardifyLog "Startar onboarding-script..."
-    Write-OnboardifyLog "Datafil: $DataPath"
+    Write-OnboardifyLog -Message "Startar onboarding-script" -Level INFO
+    Write-OnboardifyLog -Message "Datafil: $DataPath" -Level INFO
 
     if ($DemoMode) {
-        Write-OnboardifyLog "[DEMO] Demo-läge aktiverat. Inga användare eller mappar skapas."
+        Write-OnboardifyLog -Message "[DEMO] Demomode aktiverat inga användare eller mappar skapas" -Level INFO
     }
 
     # Om ingen sökväg anges sparas/läses AD-strukturen från config-mappen.
@@ -76,7 +76,7 @@ try {
 
     # Skannar AD-strukturen först.
     # Detta skapar config/ad-structure.generated.json som sedan kan användas som underlag för HR-data.
-    Write-OnboardifyLog "Startar AD-skanner..."
+    Write-OnboardifyLog -Message "Startar AD-skanner" -Level INFO
     Export-OnboardifyADStructure -OutputPath $StructurePath | Out-Null
 
     # Läser in den genererade AD-strukturen.
@@ -88,11 +88,11 @@ try {
 
     $adStructure = Get-Content -Path $StructurePath -Raw | ConvertFrom-Json
 
-    Write-OnboardifyLog "AD-struktur har skannats och lästs in."
-    Write-OnboardifyLog "AD-strukturfil: $StructurePath"
+    Write-OnboardifyLog -Message "AD-struktur har skannats och lästs in" -Level INFO
+    Write-OnboardifyLog -Message "AD-strukturfil: $StructurePath" -Level INFO
 
     if ($adStructure.organizationalUnits) {
-        Write-OnboardifyLog "Antal OU:er i AD-strukturen: $($adStructure.organizationalUnits.Count)"
+        Write-OnboardifyLog -Message "Antal OU:er i AD-strukturen: $($adStructure.organizationalUnits.Count)" -Level INFO
     }
 
     # Kontrollerar att datafilen finns innan vi försöker läsa in den.
@@ -114,12 +114,12 @@ try {
         throw "Valideringen misslyckades. Onboarding avbryts."
     }
 
-    Write-OnboardifyLog "Onboarding-data har lästs in."
-    Write-OnboardifyLog "Antal användare: $($users.Count)"
+    Write-OnboardifyLog -Message "Onboarding-data har lästs in" -Level INFO
+    Write-OnboardifyLog -Message "Hämtade $($users.Count) användare från HR-data" -Level INFO
 
     # Kör huvudflödet för varje användare.
     foreach ($user in $users) {
-        Write-OnboardifyLog "Startar onboarding för $($user.firstName) $($user.lastName)"
+        Write-OnboardifyLog -Message "Startar onboarding för $($user.firstName) $($user.lastName)" -Level INFO
 
         # Räknar ut användarnamn med samma logik som AD-modulen.
         # Detta används i DemoMode för att visa vad som skulle skapas.
@@ -143,15 +143,15 @@ try {
 
         if ($DemoMode) {
             # I DemoMode loggar vi bara vad scriptet skulle ha gjort.
-            Write-OnboardifyLog "[DEMO] Skulle skapa AD-användare för: $username"
-            Write-OnboardifyLog "[DEMO] Skulle placera användaren i OU: $($user.organizationUnit)"
+            Write-OnboardifyLog -Message "[DEMO] Skulle skapa AD-användare för $username" -Level INFO
+            Write-OnboardifyLog -Message "[DEMO] OU = $($user.organizationUnit)" -Level INFO
 
             if ($user.groups) {
-                Write-OnboardifyLog "[DEMO] Skulle lägga användaren i grupper: $($user.groups -join ', ')"
+                Write-OnboardifyLog -Message "[DEMO] grupper = $($user.groups -join ', ')" -Level INFO
             }
 
-            Write-OnboardifyLog "[DEMO] Skulle skapa hemkatalog: $homeFolder"
-            Write-OnboardifyLog "[DEMO] Onboarding klar för $($user.firstName) $($user.lastName)"
+            Write-OnboardifyLog -Message "[DEMO] hemkatalog = $homeFolder" -Level INFO
+            Write-OnboardifyLog -Message "[DEMO] onboarding klar för $($user.firstName) $($user.lastName)" -Level INFO
         }
         else {
             # Skapar AD-användaren med hjälp av AD-modulen.
@@ -164,15 +164,15 @@ try {
             # Skapar hemkatalog med samma användarnamn som AD-kontot.
             New-OnboardifyHomeFolder -HomeFolder $homeFolder
 
-            Write-OnboardifyLog "Onboarding-flöde klart för $($user.firstName) $($user.lastName)"
+            Write-OnboardifyLog -Message "Onboarding klart för $($user.firstName) $($user.lastName)" -Level OK
         }
     }
 
     if ($DemoMode) {
-        Write-OnboardifyLog "[DEMO] Onboarding-script klart."
+        Write-OnboardifyLog -Message "[DEMO] Onboarding-script klart" -Level OK
     }
     else {
-        Write-OnboardifyLog "Onboarding-script klart."
+        Write-OnboardifyLog -Message "Onboarding-script klart" -Level OK
     }
 }
 catch {
@@ -182,7 +182,7 @@ catch {
     # Försöker logga felet om loggfunktionen har hunnit laddas.
     # Om felet sker innan loggmodulen är importerad visas felet ändå i terminalen.
     if (Get-Command Write-OnboardifyLog -ErrorAction SilentlyContinue) {
-        Write-OnboardifyLog $errorMessage "FEL"
+        Write-OnboardifyLog -Message $errorMessage -Level FEL
     }
 
     Write-Host $errorMessage -ForegroundColor Red
