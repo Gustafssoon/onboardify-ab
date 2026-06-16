@@ -180,6 +180,21 @@ function Get-NextSamAccountName {
     return "$prefix$($highestNumber + 1)"
 }
 
+# Hämtar path där ett krypterat lösenord sparas för användaren.
+function Get-OnboardifyEncryptedPasswordPath {
+    [CmdletBinding()]
+    param(
+        # Det skapade AD-användarnamnet.
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string]$Username
+    )
+
+    $basePath = Join-Path $env:ProgramData "Onboardify\Passwords"
+    $fileName = "$Username.txt"
+    return Join-Path $basePath $fileName
+}
+
 # Hämtar vilken e-postdomän som ska användas för användaren.
 function Get-OnboardifyEmailDomain {
     [CmdletBinding()]
@@ -473,10 +488,17 @@ function New-OnboardifyADUser {
                 -ErrorAction Stop
         }
 
+        # Spara lösenordet krypterat på den lokala värden.
+        $securePassword = ConvertTo-SecureString $password -AsPlainText -Force
+        $encryptedPassword = $securePassword | ConvertFrom-SecureString -Scope LocalMachine
+        $passwordPath = Get-OnboardifyEncryptedPasswordPath -Username $username
+        New-Item -ItemType Directory -Path (Split-Path $passwordPath) -Force | Out-Null
+        Set-Content -Path $passwordPath -Value $encryptedPassword -NoNewline
+
         # Visar resultat i terminalen.
         Write-Host "Användaren $username har skapats i AD." -ForegroundColor Green
         Write-Host "E-post/UPN: $emailAddress" -ForegroundColor Green
-        Write-Host "Lösenord: $password" -ForegroundColor Green
+        Write-Host "Lösenordet sparat krypterat i: $passwordPath" -ForegroundColor Green
 
         # Returnerar användarnamnet till huvudscriptet.
         return $username
