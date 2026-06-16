@@ -3,8 +3,8 @@
 ## Sprintperiod
 
 Start: 2026-06-14
-Slut: 2026-06-15
-Sprintlängd: 2 dagar
+Slut: 2026-06-16
+Sprintlängd: 3 dagar
 
 ---
 
@@ -21,25 +21,33 @@ Slutföra verifiering av onboarding-flödet, färdigställa dokumentation och de
 Issuen flyttades från Sprint 3 till Sprint 4 eftersom ytterligare verifiering och integrationstestning behövs innan slutredovisningen.
 
 ---
-
 ## Valda Issues för sprinten
 
-| Issue | Titel                                             | Ansvarig        | Status |
-| ----- | ------------------------------------------------- | --------------- | ------ |
-| #22   | Skapa GUI-prototyp                                | Gabriel         | To Do  |
-| #24   | Förbereda demo och redovisningsflöde              | Ej tilldelad    | To Do  |
-| #39   | Testa hela onboarding-flödet i AD-labbet (Spike)  | Ej tilldelad    | To Do  |
-| #48   | Dokumentera daily standups – Sprint 4             | Ali             | To Do  |
-| #51   | Dokumentera sprint review – Sprint 4              | Ali             | To Do  |
-| #75   | Dokumentera sprintplan – Sprint 4                 | Ali             | To Do  |
-| #94   | Skapa återställning/cleanup efter AD-test         | Ej tilldelad    | To Do  |
-| #117  | Spike: Utöka Discovery med onboarding-struktur    | Gabriel         | To Do  |
-| #121  | Spara Title och Department på AD-användaren       | Micael          | To Do  |
-| #122  | Gör GUI:t användbart på mindre skärmar            | Gabriel, Martin | To Do  |
-| #123  | Förbättra GUI:ts visuella utseende inför demo     | Gabriel         | To Do  |
-| #124  | Lägg till fler licensval i HR-formuläret          | Zahra           | To Do  |
-| #125  | Utöka AD-strukturen i VM-testmiljön               | Gabriel         | To Do  |
-| #126  | Gör hemkatalogskapande fungerande i VM-testmiljön | Martin          | To Do  |
+| Issue | Titel                                                  | Ansvarig        | Status |
+| ----- | ------------------------------------------------------ | --------------- | ------ |
+| #22   | Skapa GUI-prototyp                                     | Gabriel         | Done   |
+| #24   | Förbereda demo och redovisningsflöde                   | Gruppen         | Done   |
+| #39   | Testa hela onboarding-flödet i AD-labbet (Spike)       | Gabriel         | Done   |
+| #48   | Dokumentera daily standups – Sprint 4                  | Ali             | Done   |
+| #51   | Dokumentera sprint review – Sprint 4                   | Ali             | Done   |
+| #75   | Dokumentera sprintplan – Sprint 4                      | Ali             | Done   |
+| #94   | Skapa återställning/cleanup efter AD-test              | Gruppen         | Done   |
+| #117  | Spike: Utöka Discovery med onboarding-struktur         | Gabriel         | Done   |
+| #121  | Spara Title och Department på AD-användaren            | Micael          | Done   |
+| #122  | Gör GUI:t användbart på mindre skärmar                 | Gabriel, Martin | Done   |
+| #123  | Förbättra GUI:ts visuella utseende inför demo          | Gabriel         | Done   |
+| #124  | Lägg till fler licensval i HR-formuläret               | Zahra           | Done   |
+| #125  | Utöka AD-strukturen i VM-testmiljön                    | Gabriel         | Done   |
+| #126  | Gör hemkatalogskapande fungerande i VM-testmiljön      | Gabriel         | Done   |
+| #131  | Lägg till admin-körning för GUI                        | Gabriel         | Done   |
+| #132  | Improve: Skulle vara snyggt om GUI blev modernare i UI | Gabriel         | Done   |
+| #136  | Flytta loggar till projektets egen logs-mapp           | Martin          | Done   |
+| #137  | Dokumentera hur GUI:t används                          | Ali             | Done   |
+| #138  | Hantera genererat lösenord säkrare i output            | Martin          | Done   |
+| #139  | Tvinga inte fullscreen i GUI                           | Gabriel         | Done   |
+| #141  | Dölj CMD-fönster när GUI:t startas                     | Gabriel         | Done   |
+| #145  | Spike: Förbättring av loggningsfunktioner              | Micael          | Done   |
+| #152  | Bug: Scope-parameter stoppar onboardingflödet          | Gabriel         | Done   |
 
 ---
 
@@ -61,6 +69,14 @@ Issuen flyttades från Sprint 3 till Sprint 4 eftersom ytterligare verifiering o
 * Färdigställa projektets dokumentation.
 * Dokumentera sprintens aktiviteter och möten.
 * Förbereda slutredovisningen.
+* Modernisera GUI:t och förbättra användarupplevelsen.
+* Implementera administratörskörning för GUI:t.
+* Förbättra logghanteringen och flytta loggar till projektets egen logs-mapp.
+* Dokumentera hur GUI:t används av HR och IT.
+* Förbättra säker hantering av genererade lösenord.
+* Åtgärda buggar som upptäcks under slutlig verifiering.
+* Säkerställa att onboarding-flödet fungerar i både Demo Mode och skarpt läge.
+
 
 ---
 
