@@ -1,4 +1,4 @@
-﻿# Tar emot sökvägen till datafilen som parameter när scriptet körs.
+# Tar emot sökvägen till datafilen som parameter när scriptet körs.
 # DemoMode gör att scriptet bara visar vad som skulle göras, utan att skapa användare eller mappar.
 param(
     [Parameter(Mandatory = $true)]
@@ -143,7 +143,7 @@ try {
 
         if ($DemoMode) {
             # I DemoMode loggar vi bara vad scriptet skulle ha gjort.
-            Write-OnboardifyLog -Message "[DEMO] Skapar AD-användare för $username" -Level INFO
+            Write-OnboardifyLog -Message "[DEMO] Skulle skapa AD-användare för $username" -Level INFO
             Write-OnboardifyLog -Message "[DEMO] OU = $($user.organizationUnit)" -Level INFO
 
             if ($user.groups) {
@@ -164,7 +164,7 @@ try {
             # Skapar hemkatalog med samma användarnamn som AD-kontot.
             New-OnboardifyHomeFolder -HomeFolder $homeFolder
 
-            Write-OnboardifyLog -Message "[DEMO] Onboarding klart för $($user.firstName) $($user.lastName)" -Level OK
+            Write-OnboardifyLog -Message "Onboarding klart för $($user.firstName) $($user.lastName)" -Level OK
         }
     }
 
