@@ -31,7 +31,6 @@ Issuen flyttades från Sprint 3 till Sprint 4 eftersom ytterligare verifiering o
 | #48   | Dokumentera daily standups – Sprint 4                  | Ali             | Done   |
 | #51   | Dokumentera sprint review – Sprint 4                   | Ali             | Done   |
 | #75   | Dokumentera sprintplan – Sprint 4                      | Ali             | Done   |
-| #94   | Skapa återställning/cleanup efter AD-test              | Gruppen         | Done   |
 | #117  | Spike: Utöka Discovery med onboarding-struktur         | Gabriel         | Done   |
 | #121  | Spara Title och Department på AD-användaren            | Micael          | Done   |
 | #122  | Gör GUI:t användbart på mindre skärmar                 | Gabriel, Martin | Done   |
